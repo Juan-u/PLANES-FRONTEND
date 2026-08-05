@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menú - Sistema Planes de Acción</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen flex bg-gray-100">
+
+    <!-- SIDEBAR -->
+    <div class="w-56 bg-cyan-700 text-white flex flex-col justify-between p-4">
+        <div>
+            <p class="font-bold text-xl mb-1">IH</p>
+            <p class="text-xs text-cyan-200 mb-6">Instituto del Huila</p>
+            <nav class="space-y-2">
+                <a href="/planes" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    📋 Planes de Acción
+                </a>
+            </nav>
+        </div>
+        <a href="/logout" onclick="return confirm('¿Desea cerrar sesión?')"
+            class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition">
+            Salir
+        </a>
+    </div>
+
+    <!-- CONTENIDO -->
+    <div class="flex-1 flex items-center justify-center">
+        <div class="text-center bg-white rounded-lg shadow p-10 max-w-md w-full">
+            <div class="text-5xl mb-4">👋</div>
+            <h1 class="text-2xl font-bold text-gray-700 mb-2">
+                ¡Bienvenido, <%= usuario ? usuario.nombre : 'Usuario' %>!
+            </h1>
+            <p class="text-gray-500 text-sm mb-6">Sistema de Gestión de Planes de Acción</p>
+            <a href="/planes"
+                class="inline-block bg-cyan-700 text-white px-6 py-2 rounded hover:bg-cyan-800 transition">
+                Ver Planes de Acción
+            </a>
+        </div>
+    </div>
+
+</body>
+</html>

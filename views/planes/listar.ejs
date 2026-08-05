@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planes de Acción</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen flex bg-gray-100">
+
+    <!-- SIDEBAR -->
+    <div class="w-56 bg-cyan-700 text-white flex flex-col justify-between p-4">
+        <div>
+            <p class="font-bold text-xl mb-1">IH</p>
+            <p class="text-xs text-cyan-200 mb-6">Instituto del Huila</p>
+            <nav class="space-y-2">
+                <a href="/menu" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">🏠 Menú</a>
+                <a href="/planes" class="block px-3 py-2 rounded bg-cyan-600 text-sm">📋 Planes de Acción</a>
+            </nav>
+        </div>
+        <a href="/logout" onclick="return confirm('¿Desea cerrar sesión?')"
+            class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition">
+            Salir
+        </a>
+    </div>
+
+    <!-- CONTENIDO -->
+    <div class="flex-1 p-6 overflow-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-gray-700">Planes de Acción</h1>
+            <a href="/planes/nuevo"
+                class="bg-cyan-700 text-white px-4 py-2 rounded hover:bg-cyan-800 transition text-sm">
+                + Nuevo Plan
+            </a>
+        </div>
+
+        <div class="bg-white rounded shadow overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b">
+                        <th class="text-left p-3 font-semibold text-gray-600">ID</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Nombre</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Descripción</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Fecha Creación</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Estado</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <% planes.forEach(plan => { %>
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-3 text-gray-500"><%= plan.id_plan %></td>
+                        <td class="p-3 font-medium text-gray-700"><%= plan.nombre %></td>
+                        <td class="p-3 text-gray-500 max-w-xs truncate"><%= plan.descripcion || '—' %></td>
+                        <td class="p-3 text-gray-500"><%= plan.fecha_creacion ? new Date(plan.fecha_creacion).toLocaleDateString('es-CO') : '—' %></td>
+                        <td class="p-3">
+                            <span class="px-2 py-1 rounded-full text-xs font-medium
+                                <%= plan.estado === 'Activo' ? 'bg-green-100 text-green-700' :
+                                    plan.estado === 'Inactivo' ? 'bg-gray-100 text-gray-600' :
+                                    'bg-yellow-100 text-yellow-700' %>">
+                                <%= plan.estado || 'Activo' %>
+                            </span>
+                        </td>
+                        <td class="p-3">
+                            <div class="flex gap-2">
+                                <a href="/planes/<%= plan.id_plan %>/actividades"
+                                    class="bg-indigo-500 text-white px-2 py-1 rounded text-xs hover:bg-indigo-600 transition">
+                                    Actividades
+                                </a>
+                                <a href="/planes/editar/<%= plan.id_plan %>"
+                                    class="bg-cyan-600 text-white px-2 py-1 rounded text-xs hover:bg-cyan-700 transition">
+                                    Editar
+                                </a>
+                                <form action="/planes/eliminar" method="POST" style="display:inline">
+                                    <input type="hidden" name="id" value="<%= plan.id_plan %>">
+                                    <button type="submit"
+                                        onclick="return confirm('¿Eliminar este plan? También se eliminarán sus actividades.')"
+                                        class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition">
+                                        Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    <% }); %>
+                    <% if (planes.length === 0) { %>
+                    <tr>
+                        <td colspan="6" class="p-6 text-center text-gray-400 italic">
+                            No hay planes de acción registrados.
+                        </td>
+                    </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</body>
+</html>

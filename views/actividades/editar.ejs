@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Actividad</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen flex bg-gray-100">
+
+    <!-- SIDEBAR -->
+    <div class="w-56 bg-cyan-700 text-white flex flex-col justify-between p-4">
+        <div>
+            <p class="font-bold text-xl mb-1">IH</p>
+            <p class="text-xs text-cyan-200 mb-6">Instituto del Huila</p>
+            <nav class="space-y-2">
+                <a href="/menu" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">🏠 Menú</a>
+                <a href="/planes" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">📋 Planes</a>
+            </nav>
+        </div>
+        <a href="/logout" onclick="return confirm('¿Desea cerrar sesión?')"
+            class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition">
+            Salir
+        </a>
+    </div>
+
+    <!-- CONTENIDO -->
+    <div class="flex-1 p-6 overflow-auto">
+        <div class="max-w-lg">
+            <div class="flex items-center gap-3 mb-6">
+                <a href="/planes/<%= plan.id_plan %>/actividades" class="text-cyan-700 hover:underline text-sm">← Volver</a>
+                <h1 class="text-xl font-bold text-gray-700">Editar Actividad</h1>
+            </div>
+            <p class="text-sm text-gray-500 mb-4">Plan: <span class="font-medium"><%= plan.nombre %></span></p>
+
+            <div class="bg-white rounded shadow p-6">
+                <% if (error) { %>
+                <div class="bg-red-50 border border-red-300 text-red-600 text-sm rounded p-3 mb-4">
+                    <%= error %>
+                </div>
+                <% } %>
+
+                <form action="/actividades/editar" method="POST" class="space-y-4">
+                    <input type="hidden" name="id" value="<%= actividad.id_actividad %>">
+                    <input type="hidden" name="id_plan" value="<%= plan.id_plan %>">
+
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Descripción *</label>
+                        <textarea name="descripcion" rows="3"
+                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 resize-none" required><%= actividad.descripcion %></textarea>
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Responsable</label>
+                        <input type="text" name="responsable" value="<%= actividad.responsable || '' %>"
+                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Fecha Inicio</label>
+                            <input type="date" name="fecha_inicio"
+                                value="<%= actividad.fecha_inicio ? new Date(actividad.fecha_inicio).toISOString().split('T')[0] : '' %>"
+                                class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                        </div>
+                        <div>
+                            <label class="text-sm font-medium text-gray-700">Fecha Fin</label>
+                            <input type="date" name="fecha_fin"
+                                value="<%= actividad.fecha_fin ? new Date(actividad.fecha_fin).toISOString().split('T')[0] : '' %>"
+                                class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Estado</label>
+                        <select name="estado"
+                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                            <option value="Pendiente"  <%= actividad.estado === 'Pendiente'  ? 'selected' : '' %>>Pendiente</option>
+                            <option value="En proceso" <%= actividad.estado === 'En proceso' ? 'selected' : '' %>>En proceso</option>
+                            <option value="Completado" <%= actividad.estado === 'Completado' ? 'selected' : '' %>>Completado</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit"
+                            class="flex-1 bg-cyan-700 text-white py-2 rounded hover:bg-cyan-800 transition text-sm">
+                            🔄 Actualizar Actividad
+                        </button>
+                        <a href="/planes/<%= plan.id_plan %>/actividades"
+                            class="flex-1 text-center border border-gray-300 text-gray-600 py-2 rounded hover:bg-gray-50 transition text-sm">
+                            ❌ Cancelar
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

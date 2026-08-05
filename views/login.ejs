@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Sistema Planes de Acción</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen flex">
+
+    <!-- LADO IZQUIERDO (LOGIN) -->
+    <div class="w-1/2 bg-gray-100 flex items-center justify-center h-screen">
+        <div class="bg-white p-6 rounded shadow w-80">
+            <h2 class="text-lg font-bold mb-4 text-center text-cyan-700">Iniciar Sesión</h2>
+
+            <% if (error) { %>
+                <div class="bg-red-50 border border-red-300 text-red-600 text-sm rounded p-2 mb-3">
+                    <%= error %>
+                </div>
+            <% } %>
+
+            <form action="/login" method="POST">
+                <label class="text-sm font-medium">Correo</label>
+                <input type="email" name="correo" placeholder="ejemplo@correo.com"
+                    class="w-full mb-3 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+
+                <label class="text-sm font-medium">Contraseña</label>
+                <input type="password" name="contraseña" placeholder="*****"
+                    class="w-full mb-4 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+
+                <button type="submit"
+                    class="w-full bg-cyan-700 text-white py-2 rounded hover:bg-cyan-800 transition">
+                    Iniciar sesión
+                </button>
+            </form>
+
+            <!-- Clima actual desde API externa -->
+            <div class="mt-5 border-t pt-4">
+                <p class="text-xs text-gray-400 mb-1 text-center">Clima actual — Villavicencio</p>
+                <div id="clima" class="text-center text-sm text-gray-600">
+                    <span class="text-gray-400 italic">Cargando...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LADO DERECHO -->
+    <div class="w-1/2 bg-cyan-700 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow p-6 w-64 text-center">
+            <div class="w-16 h-16 bg-cyan-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-white text-2xl font-bold">IH</span>
+            </div>
+            <p class="text-sm font-semibold text-gray-800">Módulo Planeador</p>
+            <p class="text-xs text-gray-500 mt-1">Instituto del Huila</p>
+        </div>
+    </div>
+
+<script>
+fetch("https://api.open-meteo.com/v1/forecast?latitude=4.15&longitude=-73.63&current_weather=true")
+    .then(r => r.json())
+    .then(data => {
+        const c = data.current_weather;
+        const iconos = { 0:"☀️", 1:"🌤️", 2:"⛅", 3:"☁️", 45:"🌫️", 61:"🌦️", 80:"🌧️", 95:"⛈️" };
+        const icono = iconos[c.weathercode] || "🌡️";
+        document.getElementById("clima").innerHTML =
+            `<span class="text-2xl">${icono}</span>
+             <p class="font-semibold">${c.temperature}°C</p>
+             <p class="text-xs text-gray-400">Viento: ${c.windspeed} km/h</p>`;
+    })
+    .catch(() => {
+        document.getElementById("clima").innerHTML =
+            "<span class='text-red-400 text-xs'>No se pudo cargar el clima.</span>";
+    });
+</script>
+
+</body>
+</html>
