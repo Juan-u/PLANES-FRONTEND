@@ -345,7 +345,7 @@ export const getUsuarios = async (req, res) => {
 };
 // GET /usuarios/nuevo - Muestra formulario de creación
 export const getNuevoUsuario = (req, res) => {
-    res.render("CrearUsuario", { error: null });
+    res.render("usuarios/crear", { error: null, usuario: req.session.usuario }); ;
 };
 
 // POST /usuarios/crear - Procesa la creación
@@ -366,14 +366,14 @@ console.log("Token:", req.session.token);
 
         if (!response.ok) {
             const data = await response.json();
-            return res.render("CrearUsuario", { error: data.message || "Error al crear usuario" });
+            return res.render("usuarios/crear", { error: data.message || "Error al crear usuario", usuario: req.session.usuario });
         }
 
         res.redirect("/usuarios");
 
     } catch (error) {
         console.error("Error:", error);
-        res.render("CrearUsuario", { error: "Error de conexión con el servidor" });
+        res.render("usuarios/crear", { error: "Error de conexión con el servidor", usuario: req.session.usuario });
     }
 };
 // ============================================
@@ -396,7 +396,7 @@ export const getEditarUsuario = async (req, res) => {
         }
 
         const usuario = await response.json();
-        res.render("EditarUsuario", { usuario, error: null });
+        res.render("usuarios/editar", { usuario, error: null, usuario: req.session.usuario });
 
     } catch (error) {
         console.error("Error:", error);
@@ -421,7 +421,7 @@ export const postEditarUsuario = async (req, res) => {
         if (!response.ok) {
             const data = await response.json();
             const usuario = { id, nombre, correo };
-            return res.render("EditarUsuario", { usuario, error: data.message || "Error al actualizar" });
+            return res.render("usuarios/editar", { usuario, error: data.message || "Error al actualizar" });
         }
 
         res.redirect("/usuarios");
@@ -429,7 +429,7 @@ export const postEditarUsuario = async (req, res) => {
     } catch (error) {
         console.error("Error:", error);
         const usuario = { id, nombre, correo };
-        res.render("EditarUsuario", { usuario, error: "Error de conexión" });
+        res.render("usuarios/editar", { usuario, error: "Error de conexión" });
     }
 };
 // ============================================
@@ -508,7 +508,7 @@ export const getPeriodos = async (req, res) => {
 
 //crear periodo
 export const getNuevoPeriodo = (req, res) => {
-    res.render("CrearPeriodo", { error: null });
+    res.render("periodos/crear", { error: null, usuario: req.session.usuario }); ;
 };
 
 // POST /periodos/crear - Procesa la creación
@@ -529,14 +529,14 @@ console.log("Token:", req.session.token);
 
         if (!response.ok) {
             const data = await response.json();
-            return res.render("CrearPeriodo", { error: data.message || "Error al crear periodo" });
+            return res.render("periodos/crear", { error: data.message || "Error al crear periodo", usuario: req.session.usuario });
         }
 
         res.redirect("/periodos");
 
     } catch (error) {
         console.error("Error:", error);
-        res.render("CrearPeriodo", { error: "Error de conexión con el servidor" });
+        res.render("periodos/crear", { error: "Error de conexión con el servidor", usuario: req.session.usuario });
     }
 
 };
@@ -557,7 +557,7 @@ export const getEditarPeriodo = async (req, res) => {
         }
 
         const periodo = await response.json();
-        res.render("EditarPeriodo", { periodo, error: null });
+        res.render("periodos/editar", { periodo, error: null, usuario: req.session.usuario });
 
     } catch (error) {
         console.error("Error:", error);
@@ -582,7 +582,7 @@ export const postEditarPeriodo = async (req, res) => {
         if (!response.ok) {
             const data = await response.json();
             const periodo = { id, nombre, fechas };
-            return res.render("EditarPeriodo", { periodo, error: data.message || "Error al actualizar" });
+            return res.render("periodos/editar", { periodo, error: data.message || "Error al actualizar" });
         }
 
         res.redirect("/periodos");
@@ -590,6 +590,6 @@ export const postEditarPeriodo = async (req, res) => {
     } catch (error) {
         console.error("Error:", error);
         const periodo = { id, nombre, fechas };
-        res.render("EditarPeriodo", { periodo, error: "Error de conexión" });
+        res.render("periodos/editar", { periodo, error: "Error de conexión" });
     }   
 };
