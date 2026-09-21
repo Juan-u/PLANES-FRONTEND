@@ -7,6 +7,7 @@ import {
     getActividades, getNuevaActividad, postCrearActividad, getEditarActividad, postEditarActividad, postEliminarActividad,
     getUsuarios, getNuevoUsuario, postCrearUsuario, getEditarUsuario, postEditarUsuario, postEliminarUsuario,
     getPeriodos, getNuevoPeriodo, postCrearPeriodo, getEditarPeriodo, postEditarPeriodo,
+    getAreas,  getNuevoArea, postCrearArea, getEditarArea, postEditarArea,
 } from '../controllers/controller.views.js';
 
 const router = Router();
@@ -44,10 +45,17 @@ router.post('/usuarios/editar',           verificarSesion, postEditarUsuario);
 router.post('/usuarios/eliminar',         verificarSesion, postEliminarUsuario); 
 
 // Periodos
-router.get ('/periodos',                  verificarSesion, getPeriodos); //
-router.get ('/periodos/nuevo',            verificarSesion, getNuevoPeriodo); //
-router.post('/periodos/crear',            verificarSesion, postCrearPeriodo); //
-router.get ('/periodos/editar/:id',       verificarSesion, getEditarPeriodo); //
-router.post('/periodos/editar',           verificarSesion, postEditarPeriodo); // 
+router.get ('/periodos',                  verificarSesion, getPeriodos);
+router.get ('/periodos/nuevo',            verificarSesion, getNuevoPeriodo); 
+router.post('/periodos/crear',            verificarSesion, postCrearPeriodo); 
+router.get ('/periodos/editar/:id',       verificarSesion, getEditarPeriodo); 
+router.post('/periodos/editar',           verificarSesion, postEditarPeriodo);  
+
+// Areas
+router.get ('/areas',                       verificarSesion, getAreas);
+router.get ('/areas/nuevo',            verificarSesion, getNuevoArea); 
+router.post('/areas/crear',            verificarSesion, postCrearArea); 
+router.get ('/areas/editar/:id',       verificarSesion, getEditarArea); 
+router.post('/areas/editar',           verificarSesion, postEditarArea);  
 
 export default router;

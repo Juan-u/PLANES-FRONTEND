@@ -592,4 +592,134 @@ export const postEditarPeriodo = async (req, res) => {
         const periodo = { id, nombre, fecha_inicio, fecha_fin };
         res.render("periodos/editar", { periodo, error: "Error de conexión" });
     }   
+
+// Areas
+export const getAreas = async (req, res) => {
+    try {
+        const response = await fetch(`${API_URL}/areas`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+                const data = await response.json();
+
+        console.log('GET /api/areas:', response.status);
+        console.log('Respuesta areas:', data);
+
+        if (!response.ok) {
+            return res.status(response.status).render('areas/listar', {
+                periodos: [],
+                usuario: req.session.usuario,
+                error: data.message || 'Error al obtener los areas'
+            });
+        }
+
+        const periodos = Array.isArray(data)
+            ? data
+            : data.areas || [];
+
+        res.render('areas/listar', {
+            areas,
+            usuario: req.session.usuario,
+            error: null
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo areas:', error);
+
+        res.status(500).render('areas/listar', {
+            areas: [],
+            usuario: req.session.usuario,
+            error: 'Error de conexión con el servidor'
+        });
+    }
+};
+
+//crear periodo
+export const getNuevoArea = (req, res) => {
+    res.render("areas/crear", { error: null, usuario: req.session.usuario }); ;
+};
+
+// POST /periodos/crear - Procesa la creación
+export const postCrearArea = async (req, res) => {
+    const { nombre } = req.body;
+console.log("Creando area:", { nombre });
+console.log("Token:", req.session.token);
+    
+    try {
+        const response = await fetch(`${API_URL}/areas`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${req.session.token}`
+            },
+            body: JSON.stringify({ nombre})
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            return res.render("areas/crear", { error: data.message || "Error al crear areas", usuario: req.session.usuario });
+        }
+
+        res.redirect("/areas");
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.render("areas/crear", { error: "Error de conexión con el servidor", usuario: req.session.usuario });
+    }
+
+};
+
+// editar periodo
+export const getEditarArea = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const response = await fetch(`${API_URL}/periodos/${id}`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+
+        if (!response.ok) {
+            return res.redirect("/areas");
+        }
+
+        const periodo = await response.json();
+        res.render("areas/editar", { area, error: null, usuario: req.session.usuario });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.redirect("/areas");
+    }
+};
+
+// POST /periodos/editar - Procesa la actualización
+export const postEditarArea = async (req, res) => {
+    const { id, nombre } = req.body;
+    
+    try {
+        const response = await fetch(`${API_URL}/periodos/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${req.session.token}`
+            },
+            body: JSON.stringify({ nombre })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            const periodo = { id, nombre };
+            return res.render("areas/editar", { periodo, error: data.message || "Error al actualizar" });
+        }
+
+        res.redirect("/areas");
+
+    } catch (error) {
+        console.error("Error:", error);
+        const periodo = { id, nombre};
+        res.render("areas/editar", { areas, error: "Error de conexión" });
+    }   
+}
 };
