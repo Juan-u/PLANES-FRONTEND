@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-screen flex bg-gray-100">
+
+    <!-- SIDEBAR -->
+    <div class="w-56 bg-cyan-700 text-white flex flex-col justify-between p-4">
+        <div>
+            <p class="font-bold text-xl mb-1">IH</p>
+            <p class="text-xs text-cyan-200 mb-6">Instituto del Huila</p>
+            <nav class="space-y-2">
+                <a href="/menu" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">🏠 Menú</a>
+                <a href="/periodos" class="block px-3 py-2 rounded bg-cyan-600 text-sm">� Periodos</a>
+            </nav>
+        </div>
+        <a href="/logout" onclick="return confirm('¿Desea cerrar sesión?')"
+            class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition">
+            Salir
+        </a>
+    </div>
+
+    <!-- CONTENIDO -->
+    <div class="flex-1 p-6 overflow-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-gray-700">Periodos</h1>
+            <a href="/periodos/nuevo"
+                class="bg-cyan-700 text-white px-4 py-2 rounded hover:bg-cyan-800 transition text-sm">
+                + Nuevo Periodo
+            </a>
+        </div>
+
+        <div class="bg-white rounded shadow overflow-hidden">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="bg-gray-50 border-b">
+                        <th class="text-left p-3 font-semibold text-gray-600">ID</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Nombre</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Fechas</th>
+  
+                    </tr>
+                </thead>
+                <tbody>
+                    <% periodos.forEach(periodo => { %>
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="p-3 text-gray-500"><%= periodo.id_periodo %></td>
+                        <td class="p-3 font-medium text-gray-700"><%= periodo.nombre %></td>
+                        <td class="p-3 text-gray-500 max-w-xs truncate"><%= periodo.fechas || '—' %></td>
+                    </tr>
+                    <% }); %>
+                    <% if (periodos.length === 0) { %>
+                    <tr>
+                        <td colspan="3" class="p-6 text-center text-gray-400 italic">
+                            No hay periodos registrados.
+                        </td>
+                    </tr>
+                    <% } %>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</body>
+</html>
+

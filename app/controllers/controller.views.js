@@ -302,15 +302,56 @@ export const postEliminarActividad = async (req, res) => {
     res.redirect(`/planes/${id_plan}/actividades`);
 };
 
+// usuarios
+export const getUsuarios = async (req, res) => {
+    try {
+        const response = await fetch(`${API_URL}/usuarios`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+        const data = await response.json();
+
+        console.log('GET /api/usuarios:', response.status);
+        console.log('Respuesta usuarios:', data);
+
+        if (!response.ok) {
+            return res.status(response.status).render('usuarios/listar', {
+                usuarios: [],
+                usuario: req.session.usuario,
+                error: data.message || 'Error al obtener los usuarios'
+            });
+        }
+
+        const usuarios = Array.isArray(data)
+            ? data
+            : data.usuarios || [];
+
+        res.render('usuarios/listar', {
+            usuarios,
+            usuario: req.session.usuario,
+            error: null
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo usuarios:', error);
+
+        res.status(500).render('usuarios/listar', {
+            usuarios: [],
+            usuario: req.session.usuario,
+            error: 'Error de conexión con el servidor'
+        });
+    }
+};
 // GET /usuarios/nuevo - Muestra formulario de creación
 export const getNuevoUsuario = (req, res) => {
-    res.render("crear", { error: null });
+    res.render("CrearUsuario", { error: null });
 };
 
 // POST /usuarios/crear - Procesa la creación
 export const postCrearUsuario = async (req, res) => {
-    const { nombre, email } = req.body;
-console.log("Creando usuario:", { nombre, email });
+    const { nombre, correo } = req.body;
+console.log("Creando usuario:", { nombre, correo });
 console.log("Token:", req.session.token);
     
     try {
@@ -320,19 +361,19 @@ console.log("Token:", req.session.token);
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre, email, password: "123456" })
+            body: JSON.stringify({ nombre, correo, password: "123456" })
         });
 
         if (!response.ok) {
             const data = await response.json();
-            return res.render("crear", { error: data.message || "Error al crear usuario" });
+            return res.render("CrearUsuario", { error: data.message || "Error al crear usuario" });
         }
 
         res.redirect("/usuarios");
 
     } catch (error) {
         console.error("Error:", error);
-        res.render("crear", { error: "Error de conexión con el servidor" });
+        res.render("CrearUsuario", { error: "Error de conexión con el servidor" });
     }
 };
 // ============================================
@@ -355,7 +396,7 @@ export const getEditarUsuario = async (req, res) => {
         }
 
         const usuario = await response.json();
-        res.render("editar", { usuario, error: null });
+        res.render("EditarUsuario", { usuario, error: null });
 
     } catch (error) {
         console.error("Error:", error);
@@ -365,7 +406,7 @@ export const getEditarUsuario = async (req, res) => {
 
 // POST /usuarios/editar - Procesa la actualización
 export const postEditarUsuario = async (req, res) => {
-    const { id, nombre, email } = req.body;
+    const { id, nombre, correo } = req.body;
     
     try {
         const response = await fetch(`${API_URL}/usuarios/${id}`, {
@@ -374,21 +415,21 @@ export const postEditarUsuario = async (req, res) => {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre, email })
+            body: JSON.stringify({ nombre, correo })
         });
 
         if (!response.ok) {
             const data = await response.json();
-            const usuario = { id, nombre, email };
-            return res.render("editar", { usuario, error: data.message || "Error al actualizar" });
+            const usuario = { id, nombre, correo };
+            return res.render("EditarUsuario", { usuario, error: data.message || "Error al actualizar" });
         }
 
         res.redirect("/usuarios");
 
     } catch (error) {
         console.error("Error:", error);
-        const usuario = { id, nombre, email };
-        res.render("editar", { usuario, error: "Error de conexión" });
+        const usuario = { id, nombre, correo };
+        res.render("EditarUsuario", { usuario, error: "Error de conexión" });
     }
 };
 // ============================================
@@ -424,8 +465,50 @@ export const postEliminarUsuario = async (req, res) => {
 };
 
 // Periodos
+export const getPeriodos = async (req, res) => {
+    try {
+        const response = await fetch(`${API_URL}/periodos`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+                const data = await response.json();
+
+        console.log('GET /api/periodos:', response.status);
+        console.log('Respuesta periodos:', data);
+
+        if (!response.ok) {
+            return res.status(response.status).render('periodos/listar', {
+                periodos: [],
+                usuario: req.session.usuario,
+                error: data.message || 'Error al obtener los periodos'
+            });
+        }
+
+        const periodos = Array.isArray(data)
+            ? data
+            : data.periodos || [];
+
+        res.render('periodos/listar', {
+            periodos,
+            usuario: req.session.usuario,
+            error: null
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo periodos:', error);
+
+        res.status(500).render('periodos/listar', {
+            periodos: [],
+            usuario: req.session.usuario,
+            error: 'Error de conexión con el servidor'
+        });
+    }
+};
+
+//crear periodo
 export const getNuevoPeriodo = (req, res) => {
-    res.render("crear-periodo", { error: null });
+    res.render("CrearPeriodo", { error: null });
 };
 
 // POST /periodos/crear - Procesa la creación
@@ -446,13 +529,67 @@ console.log("Token:", req.session.token);
 
         if (!response.ok) {
             const data = await response.json();
-            return res.render("crear-periodo", { error: data.message || "Error al crear periodo" });
+            return res.render("CrearPeriodo", { error: data.message || "Error al crear periodo" });
         }
 
         res.redirect("/periodos");
 
     } catch (error) {
         console.error("Error:", error);
-        res.render("crear-periodo", { error: "Error de conexión con el servidor" });
+        res.render("CrearPeriodo", { error: "Error de conexión con el servidor" });
     }
+
+};
+
+// editar periodo
+export const getEditarPeriodo = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const response = await fetch(`${API_URL}/periodos/${id}`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+
+        if (!response.ok) {
+            return res.redirect("/periodos");
+        }
+
+        const periodo = await response.json();
+        res.render("EditarPeriodo", { periodo, error: null });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.redirect("/periodos");
+    }
+};
+
+// POST /periodos/editar - Procesa la actualización
+export const postEditarPeriodo = async (req, res) => {
+    const { id, nombre, fechas } = req.body;
+    
+    try {
+        const response = await fetch(`${API_URL}/periodos/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${req.session.token}`
+            },
+            body: JSON.stringify({ nombre, fechas })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            const periodo = { id, nombre, fechas };
+            return res.render("EditarPeriodo", { periodo, error: data.message || "Error al actualizar" });
+        }
+
+        res.redirect("/periodos");
+
+    } catch (error) {
+        console.error("Error:", error);
+        const periodo = { id, nombre, fechas };
+        res.render("EditarPeriodo", { periodo, error: "Error de conexión" });
+    }   
 };
