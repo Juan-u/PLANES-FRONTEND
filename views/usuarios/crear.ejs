@@ -57,7 +57,36 @@
                         <input type="password" name="password" placeholder="Password del usuario"
                             class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
                     </div>
+                    
+                    <div>
+                        <label class="text-sm font-medium text-gray-700">Estado</label>
+                        <select name="estado"
+                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
+                            <option value="Activo">Activo</option>
+                            <option value="Inactivo">Inactivo</option>
+                        </select>
+                    </div>
+                        
+                    <div class="flex gap-3 pt-2">
+                        <label class="text-sm font-medium text-gray-700">Area</label>
+                        <select name="area_id"
+                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
+                            <% areas.forEach(area => { %>
+                                <option value="<%= area.id_area %>"><%= area.nombre %></option>     
+                            <% }); %>
+                        
+                        </select>
+                    </div>
 
+                    <div class="flex gap-3 pt-2">
+                        <button type="submit"
+                            class="flex-1 bg-cyan-700 text-white py-2 rounded hover:bg-cyan-800 transition text-sm">
+                            💾 Guardar Usuario
+                        </button>
+                        <a href="/usuarios"
+                            class="flex-1 text-center border border-gray-300 text-gray-600 py-2 rounded hover:bg-gray-50 transition text-sm">
+                            ❌ Cancelar
+                        </a>
      
 
                     <div class="flex gap-3 pt-2">
