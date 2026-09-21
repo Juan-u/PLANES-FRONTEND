@@ -53,15 +53,45 @@ export const getMenu = (req, res) => {
 export const getPlanes = async (req, res) => {
     try {
         const response = await fetch(`${API_URL}/planes`, {
-            headers: { 'Authorization': `Bearer ${req.session.token}` }
+            headers: {
+                'Authorization': `Bearer ${req.session.token}`
+            }
         });
-        const planes = await response.json();
-        res.render('planes/listar', { planes, usuario: req.session.usuario });
+
+        const data = await response.json();
+
+        console.log('==============================');
+        console.log('GET /api/planes');
+        console.log('Status:', response.status);
+        console.log('Respuesta:', data);
+        console.log('Es array:', Array.isArray(data));
+        console.log('==============================');
+
+        if (!response.ok) {
+            return res.status(response.status).render('planes/listar', {
+                planes: [],
+                usuario: req.session.usuario,
+                error: data.message || 'Error al obtener los planes'
+            });
+        }
+
+        res.render('planes/listar', {
+            planes: data,
+            usuario: req.session.usuario,
+            error: null
+        });
+
     } catch (error) {
-        console.error('Error:', error);
-        res.render('planes/listar', { planes: [], usuario: req.session.usuario });
+        console.error('Error obteniendo planes:', error);
+
+        res.status(500).render('planes/listar', {
+            planes: [],
+            usuario: req.session.usuario,
+            error: 'Error de conexión con el servidor'
+        });
     }
 };
+
 
 export const getNuevoPlan = (req, res) => {
     res.render('planes/crear', { error: null, usuario: req.session.usuario });
