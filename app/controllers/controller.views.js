@@ -513,8 +513,8 @@ export const getNuevoPeriodo = (req, res) => {
 
 // POST /periodos/crear - Procesa la creación
 export const postCrearPeriodo = async (req, res) => {
-    const { nombre, fechas } = req.body;
-console.log("Creando periodo:", { nombre, fechas });
+    const { nombre, fecha_inicio, fecha_fin } = req.body;
+console.log("Creando periodo:", { nombre, fecha_inicio, fecha_fin });
 console.log("Token:", req.session.token);
     
     try {
@@ -524,7 +524,7 @@ console.log("Token:", req.session.token);
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre, fechas })
+            body: JSON.stringify({ nombre, fecha_inicio, fecha_fin })
         });
 
         if (!response.ok) {
@@ -567,7 +567,7 @@ export const getEditarPeriodo = async (req, res) => {
 
 // POST /periodos/editar - Procesa la actualización
 export const postEditarPeriodo = async (req, res) => {
-    const { id, nombre, fechas } = req.body;
+    const { id, nombre, fecha_inicio, fecha_fin } = req.body;
     
     try {
         const response = await fetch(`${API_URL}/periodos/${id}`, {
@@ -576,12 +576,12 @@ export const postEditarPeriodo = async (req, res) => {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre, fechas })
+            body: JSON.stringify({ nombre, fecha_inicio, fecha_fin })
         });
 
         if (!response.ok) {
             const data = await response.json();
-            const periodo = { id, nombre, fechas };
+            const periodo = { id, nombre, fecha_inicio, fecha_fin };
             return res.render("periodos/editar", { periodo, error: data.message || "Error al actualizar" });
         }
 
@@ -589,7 +589,7 @@ export const postEditarPeriodo = async (req, res) => {
 
     } catch (error) {
         console.error("Error:", error);
-        const periodo = { id, nombre, fechas };
+        const periodo = { id, nombre, fecha_inicio, fecha_fin };
         res.render("periodos/editar", { periodo, error: "Error de conexión" });
     }   
 };
