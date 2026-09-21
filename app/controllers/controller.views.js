@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const API_URL = `${process.env.BACKEND_URL}/api`;
+const API_URL = `${process.env.BACKEND_URL}/api`;   
 
 // ============================================================
 // AUTH
