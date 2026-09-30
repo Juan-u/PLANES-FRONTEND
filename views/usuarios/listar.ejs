@@ -42,7 +42,7 @@
                         <th class="text-left p-3 font-semibold text-gray-600">Nombre</th>
                         <th class="text-left p-3 font-semibold text-gray-600">Correo</th>
                         <th class="text-left p-3 font-semibold text-gray-600">Password</th>
-  
+                        <th class="text-left p-3 font-semibold text-gray-600">Rol</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -52,6 +52,7 @@
                         <td class="p-3 font-medium text-gray-700"><%= usuario.nombre %></td>
                         <td class="p-3 text-gray-500 max-w-xs truncate"><%= usuario.correo || '—' %></td>
                         <td class="p-3 text-gray-500 max-w-xs truncate"><%= usuario.password || '—' %></td>
+                        <td class="p-3 text-gray-500"><%= usuario.rol || '-' %></td>
                     </tr>
                     <% }); %>
                     <% if (usuarios.length === 0) { %>

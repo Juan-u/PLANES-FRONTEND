@@ -775,3 +775,151 @@ export const postEditarArea = async (req, res) => {
     }   
 
 };
+
+// roles
+export const getRoles = async (req, res) => {
+    try {
+        const response = await fetch(`${API_URL}/roles`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+                const data = await response.json();
+
+        console.log('GET /api/roles:', response.status);
+        console.log('Respuesta roles:', data);
+
+        if (!response.ok) {
+            return res.status(response.status).render('roles/listar', {
+                roles: [],
+                usuario: req.session.usuario,
+                error: data.message || 'Error al obtener los areas'
+            });
+        }
+
+        const areas = Array.isArray(data)
+            ? data
+            : data.roles || [];
+
+        res.render('roles/listar', {
+            roles,
+            usuario: req.session.usuario,
+            error: null
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo areas:', error);
+
+        res.status(500).render('areas/listar', {
+            roles: [],
+            usuario: req.session.usuario,
+            error: 'Error de conexión con el servidor'
+        });
+    }
+};
+
+//crear rol
+export const getNuevoRol = (req, res) => {
+    res.render("roles/crear", { error: null, usuario: req.session.usuario }); ;
+};
+
+// POST /roles/crear - Procesa la creación
+export const postCrearRol = async (req, res) => {
+    const { nombre } = req.body;
+console.log("Creando rol:", { nombre });
+console.log("Token:", req.session.token);
+    
+    try {
+        const response = await fetch(`${API_URL}/roles`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${req.session.token}`
+            },
+            body: JSON.stringify({ nombre})
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+            return res.render("roles/crear", { error: data.message || "Error al crear roles", usuario: req.session.usuario });
+        }
+
+        res.redirect("/roles");
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.render("roles/crear", { error: "Error de conexión con el servidor", usuario: req.session.usuario });
+    }
+
+};
+
+// editar rol
+export const getEditarRol = async (req, res) => {
+    const { id } = req.params;
+    
+    try {
+        const response = await fetch(`${API_URL}/roles/${id}`, {
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+
+        if (!response.ok) {
+            return res.redirect("/roles");
+        }
+
+        const roles = await response.json();
+        res.render("roles/editar", { rol, error: null, usuario: req.session.usuario });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.redirect("/roles");
+    }
+};
+
+// POST /roles/editar - Procesa la actualización
+export const postEditarRol = async (req, res) => {
+    const { id, nombre } = req.body;
+
+    try {
+        const response = await fetch(`${API_URL}/roles/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${req.session.token}`
+            },
+            body: JSON.stringify({ nombre })
+        });
+
+        if (!response.ok) {
+            const data = await response.json();
+
+            const rol = {
+                id,
+                nombre
+            };
+
+            return res.render("roles/editar", {
+                rol,
+                error: data.message || "Error al actualizar",
+                usuario: req.session.usuario
+            });
+        }
+
+        res.redirect("/roles");
+
+    } catch (error) {
+        console.error("Error actualizando rol:", error);
+
+        const rol = {
+            id,
+            nombre
+        };
+
+        res.render("roles/editar", {
+            rol,
+            error: "Error de conexión",
+            usuario: req.session.usuario
+        });
+    }
+};
