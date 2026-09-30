@@ -344,7 +344,7 @@ export const getUsuarios = async (req, res) => {
     }
 };
 // GET /usuarios/nuevo - Muestra formulario de creación
-export const getNuevoUsuario = (req, res) => {
+export const getNuevoUsuario = async (req, res) => {
     try {
 
         const responseAreas = await fetch(`${API_URL}/areas`, {
