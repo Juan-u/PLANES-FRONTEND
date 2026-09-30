@@ -60,14 +60,39 @@
                         
                     <div class="flex gap-3 pt-2">
                         <label class="text-sm font-medium text-gray-700">Area</label>
-                        <select name="area_id"
-                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
-                            <% areas.forEach(area => { %>
-                                <option value="<%= area.id_area %>"><%= area.nombre %></option>     
-                            <% }); %>
-                        
-                        </select>
+                      <select name="area_id"
+    class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+    required>
+
+    <option value="">Seleccione un área</option>
+
+    <% areas.forEach(area => { %>
+        <option value="<%= area.id %>">
+            <%= area.nombre %>
+        </option>
+    <% }); %>
+
+</select>
                     </div>
+                    <div>
+    <label class="text-sm font-medium text-gray-700">
+        Rol *
+    </label>
+
+    <select name="rol_id"
+        class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        required>
+
+        <option value="">Seleccione un rol</option>
+
+        <% roles.forEach(rol => { %>
+            <option value="<%= rol.id %>">
+                <%= rol.nombre %>
+            </option>
+        <% }); %>
+
+    </select>
+</div>
 
                     <div class="flex gap-3 pt-2">
                         <button type="submit"

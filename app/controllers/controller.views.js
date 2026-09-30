@@ -345,7 +345,59 @@ export const getUsuarios = async (req, res) => {
 };
 // GET /usuarios/nuevo - Muestra formulario de creación
 export const getNuevoUsuario = (req, res) => {
-    res.render("usuarios/crear", { error: null, usuario: req.session.usuario }); ;
+    try {
+
+        const responseAreas = await fetch(`${API_URL}/areas`, {
+            headers: {
+                'Authorization': `Bearer ${req.session.token}`
+            }
+        });
+
+        const responseRoles = await fetch(`${API_URL}/roles`, {
+            headers: {
+                'Authorization': `Bearer ${req.session.token}`
+            }
+        });
+
+        const areas = await responseAreas.json();
+        const roles = await responseRoles.json();
+
+        if (!responseAreas.ok) {
+            return res.render('usuarios/crear', {
+                areas: [],
+                roles: [],
+                error: areas.message || 'Error al obtener las áreas',
+                usuario: req.session.usuario
+            });
+        }
+
+        if (!responseRoles.ok) {
+            return res.render('usuarios/crear', {
+                areas: areas,
+                roles: [],
+                error: roles.message || 'Error al obtener los roles',
+                usuario: req.session.usuario
+            });
+        }
+
+        res.render('usuarios/crear', {
+            areas: areas,
+            roles: roles,
+            error: null,
+            usuario: req.session.usuario
+        });
+
+    } catch (error) {
+
+        console.error('Error obteniendo áreas y roles:', error);
+
+        res.render('usuarios/crear', {
+            areas: [],
+            roles: [],
+            error: 'Error de conexión con el servidor',
+            usuario: req.session.usuario
+        });
+    }
 };
 
 // POST /usuarios/crear - Procesa la creación
@@ -592,7 +644,7 @@ export const postEditarPeriodo = async (req, res) => {
         const periodo = { id, nombre, fecha_inicio, fecha_fin };
         res.render("periodos/editar", { periodo, error: "Error de conexión" });
     }   
-
+};
 // Areas
 export const getAreas = async (req, res) => {
     try {
@@ -721,5 +773,5 @@ export const postEditarArea = async (req, res) => {
         const periodo = { id, nombre};
         res.render("areas/editar", { areas, error: "Error de conexión" });
     }   
-}
+
 };
