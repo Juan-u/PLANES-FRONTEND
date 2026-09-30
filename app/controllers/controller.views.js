@@ -448,7 +448,7 @@ export const getEditarUsuario = async (req, res) => {
         }
 
         const usuario = await response.json();
-        res.render("usuarios/editar", { usuario, error: null, usuario: req.session.usuario });
+        res.render("usuarios/editar", { usuario: usuarioEditar, error: null, usuario: req.session.usuario });
 
     } catch (error) {
         console.error("Error:", error);
@@ -660,13 +660,13 @@ export const getAreas = async (req, res) => {
 
         if (!response.ok) {
             return res.status(response.status).render('areas/listar', {
-                periodos: [],
+                areas: [],
                 usuario: req.session.usuario,
                 error: data.message || 'Error al obtener los areas'
             });
         }
 
-        const periodos = Array.isArray(data)
+        const areas = Array.isArray(data)
             ? data
             : data.areas || [];
 
@@ -727,7 +727,7 @@ export const getEditarArea = async (req, res) => {
     const { id } = req.params;
     
     try {
-        const response = await fetch(`${API_URL}/periodos/${id}`, {
+        const response = await fetch(`${API_URL}/areas/${id}`, {
             headers: {
                 "Authorization": `Bearer ${req.session.token}`
             }
@@ -737,7 +737,7 @@ export const getEditarArea = async (req, res) => {
             return res.redirect("/areas");
         }
 
-        const periodo = await response.json();
+        const areas = await response.json();
         res.render("areas/editar", { area, error: null, usuario: req.session.usuario });
 
     } catch (error) {
@@ -751,7 +751,7 @@ export const postEditarArea = async (req, res) => {
     const { id, nombre } = req.body;
     
     try {
-        const response = await fetch(`${API_URL}/periodos/${id}`, {
+        const response = await fetch(`${API_URL}/areas/${id}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json",
@@ -762,7 +762,7 @@ export const postEditarArea = async (req, res) => {
 
         if (!response.ok) {
             const data = await response.json();
-            const periodo = { id, nombre };
+            const area = { id, nombre };
             return res.render("areas/editar", { periodo, error: data.message || "Error al actualizar" });
         }
 
@@ -770,7 +770,7 @@ export const postEditarArea = async (req, res) => {
 
     } catch (error) {
         console.error("Error:", error);
-        const periodo = { id, nombre};
+        const area = { id, nombre};
         res.render("areas/editar", { areas, error: "Error de conexión" });
     }   
 
