@@ -797,7 +797,7 @@ export const getRoles = async (req, res) => {
             });
         }
 
-        const areas = Array.isArray(data)
+        const roles = Array.isArray(data)
             ? data
             : data.roles || [];
 
