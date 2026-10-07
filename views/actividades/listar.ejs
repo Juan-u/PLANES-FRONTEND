@@ -13,24 +13,25 @@
         <div>
             <p class="font-bold text-xl mb-1">IH</p>
             <p class="text-xs text-cyan-200 mb-6">Instituto del Huila</p>
-
-            <!-- Progreso de actividades -->
-            <% const total = actividades.length;
-               const completadas = actividades.filter(a => a.estado === 'Completado').length;
-               const pct = total > 0 ? Math.round((completadas / total) * 100) : 0; %>
-
-            <div class="bg-cyan-800 rounded p-3 mb-4 text-xs">
-                <p class="text-cyan-200 mb-1">Progreso</p>
-                <p class="text-white font-bold text-xl"><%= pct %>%</p>
-                <div class="w-full bg-cyan-600 rounded-full h-2 mt-2">
-                    <div class="bg-white h-2 rounded-full" style="width:<%= pct %>%"></div>
-                </div>
-                <p class="text-cyan-300 mt-1"><%= completadas %> / <%= total %> completadas</p>
-            </div>
-
             <nav class="space-y-2">
-                <a href="/menu" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">🏠 Menú</a>
-                <a href="/planes" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">📋 Planes</a>
+                <a href="/planes" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    📋 Planes de Acción
+                </a>
+                <a href="/actividades" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    📋 Actividades
+                </a>
+                <a href="/usuarios" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    👥 Usuarios
+                </a>
+                   <a href="/roles" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    🔐 Roles
+                </a>
+                <a href="/periodos" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    📊 Periodos
+                </a>
+                <a href="/areas" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
+                    A Areas
+
             </nav>
         </div>
         <a href="/logout" onclick="return confirm('¿Desea cerrar sesión?')"
