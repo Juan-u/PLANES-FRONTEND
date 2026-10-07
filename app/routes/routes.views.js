@@ -8,6 +8,7 @@ import {
     getUsuarios, getNuevoUsuario, postCrearUsuario, getEditarUsuario, postEditarUsuario, postEliminarUsuario,
     getPeriodos, getNuevoPeriodo, postCrearPeriodo, getEditarPeriodo, postEditarPeriodo,
     getAreas,  getNuevoArea, postCrearArea, getEditarArea, postEditarArea,
+    getRoles, getNuevoRol, postCrearRol, getEditarRol, postEditarRol,
 } from '../controllers/controller.views.js';
 
 const router = Router();
@@ -57,5 +58,12 @@ router.get ('/areas/nuevo',            verificarSesion, getNuevoArea);
 router.post('/areas/crear',            verificarSesion, postCrearArea); 
 router.get ('/areas/editar/:id',       verificarSesion, getEditarArea); 
 router.post('/areas/editar',           verificarSesion, postEditarArea);  
+
+// Roles
+router.get ('/roles',                       verificarSesion, getRoles);
+router.get ('/roles/nuevo',            verificarSesion, getNuevoRol); 
+router.post('/roles/crear',            verificarSesion, postCrearRol); 
+router.get ('/roles/editar/:id',       verificarSesion, getEditarRol); 
+router.post('/roles/editar',           verificarSesion, postEditarRol);
 
 export default router;
