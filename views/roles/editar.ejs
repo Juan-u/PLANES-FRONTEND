@@ -56,25 +56,44 @@
                 </div>
                 <% } %>
 
-                <form action="/roles/editar" method="POST" class="space-y-4">
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Nombre del rol </label>
-                        <input type="text" name="nombre" placeholder="Nombre del rol"
-                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
-                    </div>
+               <form action="/roles/editar" method="POST" class="space-y-4">
 
+    <input type="hidden" name="id" value="<%= rol.id %>">
 
-                    <div class="flex gap-3 pt-2">
-                        <button type="submit"
-                            class="flex-1 bg-cyan-700 text-white py-2 rounded hover:bg-cyan-800 transition text-sm">
-                            💾 Actualizar Rol
-                        </button>
-                        <a href="/roles"
-                            class="flex-1 text-center border border-gray-300 text-gray-600 py-2 rounded hover:bg-gray-50 transition text-sm">
-                            ❌ Cancelar
-                        </a>
-                    </div>
-                </form>
+    <div>
+        <label class="text-sm font-medium text-gray-700">
+            Nombre del rol
+        </label>
+
+        <input
+            type="text"
+            name="nombre"
+            value="<%= rol.nombre %>"
+            placeholder="Nombre del rol"
+            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+            required
+        >
+    </div>
+
+    <div class="flex gap-3 pt-2">
+
+        <button
+            type="submit"
+            class="flex-1 bg-cyan-700 text-white py-2 rounded hover:bg-cyan-800 transition text-sm"
+        >
+            💾 Actualizar Rol
+        </button>
+
+        <a
+            href="/roles"
+            class="flex-1 text-center border border-gray-300 text-gray-600 py-2 rounded hover:bg-gray-50 transition text-sm"
+        >
+            ❌ Cancelar
+        </a>
+
+    </div>
+
+</form>
             </div>
         </div>
     </div>

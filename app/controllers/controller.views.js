@@ -302,18 +302,17 @@ export const postEliminarActividad = async (req, res) => {
     res.redirect(`/planes/${id_plan}/actividades`);
 };
 
-// usuarios
+// USUARIOS
+
 export const getUsuarios = async (req, res) => {
     try {
         const response = await fetch(`${API_URL}/usuarios`, {
             headers: {
-                "Authorization": `Bearer ${req.session.token}`
+                Authorization: `Bearer ${req.session.token}`
             }
         });
-        const data = await response.json();
 
-        console.log('GET /api/usuarios:', response.status);
-        console.log('Respuesta usuarios:', data);
+        const data = await response.json();
 
         if (!response.ok) {
             return res.status(response.status).render('usuarios/listar', {
@@ -323,12 +322,8 @@ export const getUsuarios = async (req, res) => {
             });
         }
 
-        const usuarios = Array.isArray(data)
-            ? data
-            : data.usuarios || [];
-
         res.render('usuarios/listar', {
-            usuarios,
+            usuarios: Array.isArray(data) ? data : [],
             usuario: req.session.usuario,
             error: null
         });
@@ -343,21 +338,25 @@ export const getUsuarios = async (req, res) => {
         });
     }
 };
-// GET /usuarios/nuevo - Muestra formulario de creación
+
+
+// NUEVO USUARIO
+
 export const getNuevoUsuario = async (req, res) => {
     try {
+        const [responseAreas, responseRoles] = await Promise.all([
+            fetch(`${API_URL}/areas`, {
+                headers: {
+                    Authorization: `Bearer ${req.session.token}`
+                }
+            }),
 
-        const responseAreas = await fetch(`${API_URL}/areas`, {
-            headers: {
-                'Authorization': `Bearer ${req.session.token}`
-            }
-        });
-
-        const responseRoles = await fetch(`${API_URL}/roles`, {
-            headers: {
-                'Authorization': `Bearer ${req.session.token}`
-            }
-        });
+            fetch(`${API_URL}/roles`, {
+                headers: {
+                    Authorization: `Bearer ${req.session.token}`
+                }
+            })
+        ]);
 
         const areas = await responseAreas.json();
         const roles = await responseRoles.json();
@@ -373,7 +372,7 @@ export const getNuevoUsuario = async (req, res) => {
 
         if (!responseRoles.ok) {
             return res.render('usuarios/crear', {
-                areas: areas,
+                areas,
                 roles: [],
                 error: roles.message || 'Error al obtener los roles',
                 usuario: req.session.usuario
@@ -381,14 +380,13 @@ export const getNuevoUsuario = async (req, res) => {
         }
 
         res.render('usuarios/crear', {
-            areas: areas,
-            roles: roles,
+            areas,
+            roles,
             error: null,
             usuario: req.session.usuario
         });
 
     } catch (error) {
-
         console.error('Error obteniendo áreas y roles:', error);
 
         res.render('usuarios/crear', {
@@ -400,121 +398,223 @@ export const getNuevoUsuario = async (req, res) => {
     }
 };
 
-// POST /usuarios/crear - Procesa la creación
+
+// CREAR USUARIO
+
 export const postCrearUsuario = async (req, res) => {
-    const { nombre, correo } = req.body;
-console.log("Creando usuario:", { nombre, correo });
-console.log("Token:", req.session.token);
-    
+
+    const {
+        nombre,
+        correo,
+        password,
+        area_id,
+        rol_id
+    } = req.body;
+
     try {
+
         const response = await fetch(`${API_URL}/usuarios`, {
-            method: "POST",
+            method: 'POST',
+
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${req.session.token}`
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre, correo, password: "123456" })
+
+            body: JSON.stringify({
+                nombre,
+                correo,
+                password,
+                area_id,
+                rol_id
+            })
         });
 
         if (!response.ok) {
+
             const data = await response.json();
-            return res.render("usuarios/crear", { error: data.message || "Error al crear usuario", usuario: req.session.usuario });
+
+            return res.render('usuarios/crear', {
+                areas: [],
+                roles: [],
+                error: data.message || 'Error al crear usuario',
+                usuario: req.session.usuario
+            });
         }
 
-        res.redirect("/usuarios");
+        res.redirect('/usuarios');
 
     } catch (error) {
-        console.error("Error:", error);
-        res.render("usuarios/crear", { error: "Error de conexión con el servidor", usuario: req.session.usuario });
+
+        console.error('Error creando usuario:', error);
+
+        res.render('usuarios/crear', {
+            areas: [],
+            roles: [],
+            error: 'Error de conexión con el servidor',
+            usuario: req.session.usuario
+        });
     }
 };
-// ============================================
-// VISTA 5: EDITAR REGISTRO
-// ============================================
 
-// GET /usuarios/editar/:id - Muestra formulario de edición
+
+// EDITAR USUARIO
+
 export const getEditarUsuario = async (req, res) => {
+
     const { id } = req.params;
-    
-    try {
-        const response = await fetch(`${API_URL}/usuarios/${id}`, {
-            headers: {
-                "Authorization": `Bearer ${req.session.token}`
-            }
-        });
 
-        if (!response.ok) {
-            return res.redirect("/usuarios");
+    try {
+
+        const [responseUsuario, responseAreas, responseRoles] =
+            await Promise.all([
+
+                fetch(`${API_URL}/usuarios/${id}`, {
+                    headers: {
+                        Authorization: `Bearer ${req.session.token}`
+                    }
+                }),
+
+                fetch(`${API_URL}/areas`, {
+                    headers: {
+                        Authorization: `Bearer ${req.session.token}`
+                    }
+                }),
+
+                fetch(`${API_URL}/roles`, {
+                    headers: {
+                        Authorization: `Bearer ${req.session.token}`
+                    }
+                })
+            ]);
+
+        if (!responseUsuario.ok) {
+            return res.redirect('/usuarios');
         }
 
-        const usuario = await response.json();
-        res.render("usuarios/editar", { usuario: usuarioEditar, error: null, usuario: req.session.usuario });
+        const usuarioEditar = await responseUsuario.json();
+        const areas = await responseAreas.json();
+        const roles = await responseRoles.json();
+
+        res.render('usuarios/editar', {
+            usuario: usuarioEditar,
+            areas,
+            roles,
+            error: null,
+            usuarioSesion: req.session.usuario
+        });
 
     } catch (error) {
-        console.error("Error:", error);
-        res.redirect("/usuarios");
+
+        console.error('Error obteniendo usuario:', error);
+
+        res.redirect('/usuarios');
     }
 };
 
-// POST /usuarios/editar - Procesa la actualización
+
+// ACTUALIZAR USUARIO
+
 export const postEditarUsuario = async (req, res) => {
-    const { id, nombre, correo } = req.body;
-    
+
+    const {
+        id,
+        nombre,
+        correo,
+        password,
+        area_id,
+        rol_id
+    } = req.body;
+
     try {
+
         const response = await fetch(`${API_URL}/usuarios/${id}`, {
-            method: "PUT",
+            method: 'PUT',
+
             headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${req.session.token}`
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre, correo })
+
+            body: JSON.stringify({
+                nombre,
+                correo,
+                password,
+                area_id,
+                rol_id
+            })
         });
 
         if (!response.ok) {
+
             const data = await response.json();
-            const usuario = { id, nombre, correo };
-            return res.render("usuarios/editar", { usuario, error: data.message || "Error al actualizar" });
+
+            return res.render('usuarios/editar', {
+                usuario: {
+                    id_usuario: id,
+                    nombre,
+                    correo,
+                    area_id,
+                    rol_id
+                },
+                areas: [],
+                roles: [],
+                error: data.message || 'Error al actualizar usuario',
+                usuarioSesion: req.session.usuario
+            });
         }
 
-        res.redirect("/usuarios");
+        res.redirect('/usuarios');
 
     } catch (error) {
-        console.error("Error:", error);
-        const usuario = { id, nombre, correo };
-        res.render("usuarios/editar", { usuario, error: "Error de conexión" });
+
+        console.error('Error actualizando usuario:', error);
+
+        res.render('usuarios/editar', {
+            usuario: {
+                id_usuario: id,
+                nombre,
+                correo,
+                area_id,
+                rol_id
+            },
+            areas: [],
+            roles: [],
+            error: 'Error de conexión',
+            usuarioSesion: req.session.usuario
+        });
     }
 };
-// ============================================
-// VISTA 6: ELIMINAR REGISTRO
-// ============================================
 
-/**
- * POST /usuarios/eliminar - Elimina un usuario
- * Nota: Usamos POST en lugar de DELETE porque los formularios HTML
- * solo soportan GET y POST. El servidor internamente usa DELETE.
- */
+
+// ELIMINAR USUARIO
+
 export const postEliminarUsuario = async (req, res) => {
+
     const { id } = req.body;
-    
+
     try {
+
         const response = await fetch(`${API_URL}/usuarios/${id}`, {
-            method: "DELETE",
+            method: 'DELETE',
+
             headers: {
-                "Authorization": `Bearer ${req.session.token}`
+                Authorization: `Bearer ${req.session.token}`
             }
         });
 
         if (!response.ok) {
-            console.error("Error al eliminar usuario");
+            console.error('Error al eliminar usuario');
         }
 
-        res.redirect("/usuarios");
-
     } catch (error) {
-        console.error("Error:", error);
-        res.redirect("/usuarios");
+
+        console.error('Error eliminando usuario:', error);
     }
+
+    res.redirect('/usuarios');
 };
+
 
 // Periodos
 export const getPeriodos = async (req, res) => {
@@ -776,7 +876,9 @@ export const postEditarArea = async (req, res) => {
 
 };
 
-// roles
+// ROLES
+
+// GET /roles
 export const getRoles = async (req, res) => {
     try {
         const response = await fetch(`${API_URL}/roles`, {
@@ -784,7 +886,8 @@ export const getRoles = async (req, res) => {
                 "Authorization": `Bearer ${req.session.token}`
             }
         });
-                const data = await response.json();
+
+        const data = await response.json();
 
         console.log('GET /api/roles:', response.status);
         console.log('Respuesta roles:', data);
@@ -793,7 +896,7 @@ export const getRoles = async (req, res) => {
             return res.status(response.status).render('roles/listar', {
                 roles: [],
                 usuario: req.session.usuario,
-                error: data.message || 'Error al obtener los areas'
+                error: data.message || 'Error al obtener los roles'
             });
         }
 
@@ -808,9 +911,9 @@ export const getRoles = async (req, res) => {
         });
 
     } catch (error) {
-        console.error('Error obteniendo areas:', error);
+        console.error('Error obteniendo roles:', error);
 
-        res.status(500).render('areas/listar', {
+        res.status(500).render('roles/listar', {
             roles: [],
             usuario: req.session.usuario,
             error: 'Error de conexión con el servidor'
@@ -818,17 +921,23 @@ export const getRoles = async (req, res) => {
     }
 };
 
-//crear rol
+
+// NUEVO ROL
+
 export const getNuevoRol = (req, res) => {
-    res.render("roles/crear", { error: null, usuario: req.session.usuario }); ;
+    res.render("roles/crear", {
+        error: null,
+        usuario: req.session.usuario
+    });
 };
 
-// POST /roles/crear - Procesa la creación
+
+// POST /roles/crear
 export const postCrearRol = async (req, res) => {
     const { nombre } = req.body;
-console.log("Creando rol:", { nombre });
-console.log("Token:", req.session.token);
-    
+
+    console.log("Creando rol:", { nombre });
+
     try {
         const response = await fetch(`${API_URL}/roles`, {
             method: "POST",
@@ -836,27 +945,39 @@ console.log("Token:", req.session.token);
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre})
+            body: JSON.stringify({
+                nombre
+            })
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-            const data = await response.json();
-            return res.render("roles/crear", { error: data.message || "Error al crear roles", usuario: req.session.usuario });
+            return res.render("roles/crear", {
+                error: data.message || "Error al crear el rol",
+                usuario: req.session.usuario
+            });
         }
 
         res.redirect("/roles");
 
     } catch (error) {
-        console.error("Error:", error);
-        res.render("roles/crear", { error: "Error de conexión con el servidor", usuario: req.session.usuario });
-    }
+        console.error("Error creando rol:", error);
 
+        res.render("roles/crear", {
+            error: "Error de conexión con el servidor",
+            usuario: req.session.usuario
+        });
+    }
 };
 
-// editar rol
+
+// EDITAR ROL
+
+// GET /roles/editar/:id
 export const getEditarRol = async (req, res) => {
     const { id } = req.params;
-    
+
     try {
         const response = await fetch(`${API_URL}/roles/${id}`, {
             headers: {
@@ -868,18 +989,33 @@ export const getEditarRol = async (req, res) => {
             return res.redirect("/roles");
         }
 
-        const roles = await response.json();
-        res.render("roles/editar", { rol, error: null, usuario: req.session.usuario });
+        // AQUÍ estaba el error:
+        // antes tenías "const roles"
+        // pero después utilizabas "rol"
+        const rol = await response.json();
+
+        res.render("roles/editar", {
+            rol,
+            error: null,
+            usuario: req.session.usuario
+        });
 
     } catch (error) {
-        console.error("Error:", error);
+        console.error("Error obteniendo rol:", error);
+
         res.redirect("/roles");
     }
 };
 
-// POST /roles/editar - Procesa la actualización
+
+// POST /roles/editar
 export const postEditarRol = async (req, res) => {
     const { id, nombre } = req.body;
+
+    const rol = {
+        id,
+        nombre
+    };
 
     try {
         const response = await fetch(`${API_URL}/roles/${id}`, {
@@ -888,20 +1024,17 @@ export const postEditarRol = async (req, res) => {
                 "Content-Type": "application/json",
                 "Authorization": `Bearer ${req.session.token}`
             },
-            body: JSON.stringify({ nombre })
+            body: JSON.stringify({
+                nombre
+            })
         });
 
+        const data = await response.json();
+
         if (!response.ok) {
-            const data = await response.json();
-
-            const rol = {
-                id,
-                nombre
-            };
-
             return res.render("roles/editar", {
                 rol,
-                error: data.message || "Error al actualizar",
+                error: data.message || "Error al actualizar el rol",
                 usuario: req.session.usuario
             });
         }
@@ -911,15 +1044,47 @@ export const postEditarRol = async (req, res) => {
     } catch (error) {
         console.error("Error actualizando rol:", error);
 
-        const rol = {
-            id,
-            nombre
-        };
-
         res.render("roles/editar", {
             rol,
-            error: "Error de conexión",
+            error: "Error de conexión con el servidor",
             usuario: req.session.usuario
+        });
+    }
+};
+
+
+// ELIMINAR ROL
+
+export const postEliminarRol = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const response = await fetch(`${API_URL}/roles/${id}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${req.session.token}`
+            }
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+            return res.status(response.status).render("roles/listar", {
+                roles: [],
+                usuario: req.session.usuario,
+                error: data.message || "Error al eliminar el rol"
+            });
+        }
+
+        res.redirect("/roles");
+
+    } catch (error) {
+        console.error("Error eliminando rol:", error);
+
+        res.status(500).render("roles/listar", {
+            roles: [],
+            usuario: req.session.usuario,
+            error: "Error de conexión con el servidor"
         });
     }
 };
