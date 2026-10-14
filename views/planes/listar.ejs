@@ -68,7 +68,7 @@
                 <tbody>
                     <% planes.forEach(plan => { %>
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="p-3 text-gray-500"><%= plan.id_plan %></td>
+                        <td class="p-3 text-gray-500"><%= plan.id %></td>
                         <td class="p-3 font-medium text-gray-700"><%= plan.nombre %></td>
                         <td class="p-3 text-gray-500 max-w-xs truncate"><%= plan.descripcion || '—' %></td>
                         <td class="p-3 text-gray-500"><%= plan.fecha_creacion ? new Date(plan.fecha_creacion).toLocaleDateString('es-CO') : '—' %></td>
@@ -82,16 +82,16 @@
                         </td>
                         <td class="p-3">
                             <div class="flex gap-2">
-                                <a href="/planes/<%= plan.id_plan %>/actividades"
+                                <a href="/planes/<%= plan.id %>/actividades"
                                     class="bg-indigo-500 text-white px-2 py-1 rounded text-xs hover:bg-indigo-600 transition">
                                     Actividades
                                 </a>
-                                <a href="/planes/editar/<%= plan.id_plan %>"
+                                <a href="/planes/editar/<%= plan.id %>"
                                     class="bg-cyan-600 text-white px-2 py-1 rounded text-xs hover:bg-cyan-700 transition">
                                     Editar
                                 </a>
                                 <form action="/planes/eliminar" method="POST" style="display:inline">
-                                    <input type="hidden" name="id" value="<%= plan.id_plan %>">
+                                    <input type="hidden" name="id" value="<%= plan.id %>">
                                     <button type="submit"
                                         onclick="return confirm('¿Eliminar este plan? También se eliminarán sus actividades.')"
                                         class="bg-red-500 text-white px-2 py-1 rounded text-xs hover:bg-red-600 transition">

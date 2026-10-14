@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 
-const API_URL = `${process.env.BACKEND_URL}/api`;   
+const API_URL = `${(process.env.BACKEND_URL || 'http://localhost:3000').replace(/\/$/, '')}/api`;
 
 // ============================================================
 // AUTH
@@ -551,11 +551,12 @@ export const postEditarUsuario = async (req, res) => {
 
             return res.render('usuarios/editar', {
                 usuario: {
-                    id_usuario: id,
+                    id,
                     nombre,
                     correo,
                     area_id,
-                    rol_id
+                    rol_id,
+                    estado: req.body.estado || 'Activo'
                 },
                 areas: [],
                 roles: [],
@@ -837,8 +838,8 @@ export const getEditarArea = async (req, res) => {
             return res.redirect("/areas");
         }
 
-        const areas = await response.json();
-        res.render("areas/editar", { area, error: null, usuario: req.session.usuario });
+        const area = await response.json();
+        res.render('areas/editar', { area, error: null, usuario: req.session.usuario });
 
     } catch (error) {
         console.error("Error:", error);
@@ -863,7 +864,7 @@ export const postEditarArea = async (req, res) => {
         if (!response.ok) {
             const data = await response.json();
             const area = { id, nombre };
-            return res.render("areas/editar", { periodo, error: data.message || "Error al actualizar" });
+            return res.render('areas/editar', { area, error: data.message || 'Error al actualizar', usuario: req.session.usuario });
         }
 
         res.redirect("/areas");
@@ -871,7 +872,7 @@ export const postEditarArea = async (req, res) => {
     } catch (error) {
         console.error("Error:", error);
         const area = { id, nombre};
-        res.render("areas/editar", { areas, error: "Error de conexión" });
+        res.render('areas/editar', { area, error: 'Error de conexión', usuario: req.session.usuario });
     }   
 
 };
@@ -1056,7 +1057,7 @@ export const postEditarRol = async (req, res) => {
 // ELIMINAR ROL
 
 export const postEliminarRol = async (req, res) => {
-    const { id } = req.params;
+    const { id } = req.body;
 
     try {
         const response = await fetch(`${API_URL}/roles/${id}`, {
@@ -1087,4 +1088,97 @@ export const postEliminarRol = async (req, res) => {
             error: "Error de conexión con el servidor"
         });
     }
+};
+
+// ============================================================
+// SEGUIMIENTO TRIMESTRAL, EVIDENCIAS, REVISIÓN Y AUDITORÍA
+// ============================================================
+const apiFetch = (path, req, options = {}) => fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: { ...(options.headers || {}), Authorization: `Bearer ${req.session.token}` }
+});
+
+export const getDashboardSeguimiento = async (req, res) => {
+    try {
+        const [dashRes, notifRes] = await Promise.all([
+            apiFetch('/dashboard', req), apiFetch('/notificaciones', req)
+        ]);
+        const dashboard = dashRes.ok ? await dashRes.json() : null;
+        const notificaciones = notifRes.ok ? await notifRes.json() : [];
+        res.render('seguimiento/dashboard', { usuario: req.session.usuario, dashboard, notificaciones, error: dashboard ? null : 'No fue posible cargar el resumen.' });
+    } catch (error) {
+        console.error('Dashboard seguimiento:', error);
+        res.render('seguimiento/dashboard', { usuario: req.session.usuario, dashboard: null, notificaciones: [], error: 'No hay conexión con el backend.' });
+    }
+};
+
+export const getSeguimiento = async (req, res) => {
+    try {
+        const [calRes, planRes, periodoRes, areaRes] = await Promise.all([
+            apiFetch('/seguimiento/calificaciones', req), apiFetch('/seguimiento/planeacion', req),
+            apiFetch('/periodos', req), apiFetch('/areas', req)
+        ]);
+        const [calificaciones, planeaciones, periodos, areas] = await Promise.all([calRes.json(), planRes.json(), periodoRes.json(), areaRes.json()]);
+        res.render('seguimiento/listar', { usuario: req.session.usuario, calificaciones: Array.isArray(calificaciones) ? calificaciones : [], planeaciones: Array.isArray(planeaciones) ? planeaciones : [], periodos: Array.isArray(periodos) ? periodos : [], areas: Array.isArray(areas) ? areas : [], error: null, mensaje: req.query.mensaje || null });
+    } catch (error) {
+        console.error('Seguimiento:', error);
+        res.render('seguimiento/listar', { usuario: req.session.usuario, calificaciones: [], planeaciones: [], periodos: [], areas: [], error: 'No fue posible cargar el seguimiento.', mensaje: null });
+    }
+};
+
+export const postCrearPlaneacion = async (req, res) => {
+    try {
+        const response = await apiFetch('/seguimiento/planeacion', req, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req.body) });
+        const data = await response.json();
+        if (!response.ok) return res.redirect('/seguimiento?mensaje=' + encodeURIComponent(data.message || 'No se pudo crear la actividad'));
+        res.redirect('/seguimiento?mensaje=' + encodeURIComponent('Actividad de planeación creada correctamente'));
+    } catch (error) { console.error(error); res.redirect('/seguimiento?mensaje=' + encodeURIComponent('Error de conexión')); }
+};
+
+export const postCrearCalificacion = async (req, res) => {
+    try {
+        const response = await apiFetch('/seguimiento/calificaciones', req, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(req.body) });
+        const data = await response.json();
+        res.redirect('/seguimiento?mensaje=' + encodeURIComponent(data.message || (response.ok ? 'Guardado' : 'No se pudo guardar')));
+    } catch (error) { console.error(error); res.redirect('/seguimiento?mensaje=' + encodeURIComponent('Error de conexión')); }
+};
+
+export const postRevisionCalificacion = async (req, res) => {
+    try {
+        const response = await apiFetch(`/seguimiento/calificaciones/${req.body.id}/revision`, req, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ estado: req.body.estado, observacion: req.body.observacion }) });
+        const data = await response.json();
+        res.redirect('/seguimiento?mensaje=' + encodeURIComponent(data.message || 'Revisión procesada'));
+    } catch (error) { console.error(error); res.redirect('/seguimiento?mensaje=' + encodeURIComponent('Error de conexión')); }
+};
+
+export const postSubirEvidencia = async (req, res) => {
+    try {
+        const { calificacion_id, filename, filedata, mimetype } = req.body;
+        if (!filedata) return res.redirect('/seguimiento?mensaje=' + encodeURIComponent('Selecciona un archivo primero'));
+        const buffer = Buffer.from(filedata, 'base64');
+        const response = await apiFetch(`/seguimiento/evidencias?calificacion_id=${encodeURIComponent(calificacion_id)}&filename=${encodeURIComponent(filename || 'evidencia')}`, req, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream', 'X-Original-Mime': mimetype || 'application/octet-stream' }, body: buffer });
+        const data = await response.json();
+        res.redirect('/seguimiento?mensaje=' + encodeURIComponent(data.message || 'Carga procesada'));
+    } catch (error) { console.error(error); res.redirect('/seguimiento?mensaje=' + encodeURIComponent('Error al cargar evidencia')); }
+};
+
+export const getAuditoria = async (req, res) => {
+    try {
+        const response = await apiFetch('/auditoria', req);
+        const logs = response.ok ? await response.json() : [];
+        res.render('seguimiento/auditoria', { usuario: req.session.usuario, logs: Array.isArray(logs) ? logs : [], error: response.ok ? null : 'No tienes permisos o no se pudo cargar la auditoría.' });
+    } catch (error) { console.error(error); res.render('seguimiento/auditoria', { usuario: req.session.usuario, logs: [], error: 'Error de conexión con el backend.' }); }
+};
+
+
+export const getDescargarEvidencia = async (req, res) => {
+    try {
+        const response = await apiFetch(`/seguimiento/evidencias/${req.params.id}/descargar`, req);
+        if (!response.ok) return res.status(response.status).send('No fue posible descargar la evidencia.');
+        const disposition = response.headers.get('content-disposition');
+        const contentType = response.headers.get('content-type') || 'application/octet-stream';
+        if (disposition) res.setHeader('Content-Disposition', disposition);
+        res.setHeader('Content-Type', contentType);
+        response.body.pipe(res);
+    } catch (error) { console.error(error); res.status(500).send('Error descargando evidencia.'); }
 };

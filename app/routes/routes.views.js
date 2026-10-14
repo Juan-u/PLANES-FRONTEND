@@ -8,7 +8,8 @@ import {
     getUsuarios, getNuevoUsuario, postCrearUsuario, getEditarUsuario, postEditarUsuario, postEliminarUsuario,
     getPeriodos, getNuevoPeriodo, postCrearPeriodo, getEditarPeriodo, postEditarPeriodo,
     getAreas,  getNuevoArea, postCrearArea, getEditarArea, postEditarArea,
-    getRoles, getNuevoRol, postCrearRol, getEditarRol, postEditarRol,
+    getRoles, getNuevoRol, postCrearRol, getEditarRol, postEditarRol, postEliminarRol,
+    getDashboardSeguimiento, getSeguimiento, postCrearPlaneacion, postCrearCalificacion, postRevisionCalificacion, postSubirEvidencia, getAuditoria, getDescargarEvidencia,
 } from '../controllers/controller.views.js';
 
 const router = Router();
@@ -18,8 +19,16 @@ router.get ('/',      getLogin);
 router.post('/login', postLogin);
 router.get ('/logout', logout);
 
-// Menú
+// Menú y dashboard
 router.get('/menu', verificarSesion, getMenu);
+router.get('/dashboard', verificarSesion, getDashboardSeguimiento);
+router.get('/seguimiento', verificarSesion, getSeguimiento);
+router.post('/seguimiento/planeacion/crear', verificarSesion, postCrearPlaneacion);
+router.post('/seguimiento/calificaciones/crear', verificarSesion, postCrearCalificacion);
+router.post('/seguimiento/calificaciones/revision', verificarSesion, postRevisionCalificacion);
+router.post('/seguimiento/evidencias/subir', verificarSesion, postSubirEvidencia);
+router.get('/seguimiento/evidencias/:id/descargar', verificarSesion, getDescargarEvidencia);
+router.get('/auditoria', verificarSesion, getAuditoria);
 
 // Planes de acción
 router.get ('/planes',                  verificarSesion, getPlanes);
@@ -65,5 +74,6 @@ router.get ('/roles/nuevo',            verificarSesion, getNuevoRol);
 router.post('/roles/crear',            verificarSesion, postCrearRol); 
 router.get ('/roles/editar/:id',       verificarSesion, getEditarRol); 
 router.post('/roles/editar',           verificarSesion, postEditarRol);
+router.post('/roles/eliminar',         verificarSesion, postEliminarRol);
 
 export default router;

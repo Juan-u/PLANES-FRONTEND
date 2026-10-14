@@ -57,7 +57,7 @@
                 <% } %>
 
                 <form action="/periodos/editar" method="POST" class="space-y-4">
-                    <input type="hidden" name="id" value="<%= periodo.id_periodo %>">
+                    <input type="hidden" name="id" value="<%= periodo.id %>">
 
                     <div>
                         <label class="text-sm font-medium text-gray-700">Nombre del periodo *</label>
@@ -84,10 +84,8 @@
                         <label class="text-sm font-medium text-gray-700">Estado</label>
                         <select name="estado"
                             class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500">
-                            <option value="Activo"     <%= periodo.estado === 'Activo'      ? 'selected' : '' %>>Activo</option>
-                            <option value="Inactivo"   <%= periodo.estado === 'Inactivo'    ? 'selected' : '' %>>Inactivo</option>
-                            <option value="En proceso" <%= periodo.estado === 'En proceso'  ? 'selected' : '' %>>En proceso</option>
-                            <option value="Finalizado" <%= periodo.estado === 'Finalizado'  ? 'selected' : '' %>>Finalizado</option>
+                            <option value="Cerrado" <%= periodo.estado === 'Cerrado' ? 'selected' : '' %>>Cerrado</option>
+                            <option value="Abierto" <%= periodo.estado === 'Abierto' ? 'selected' : '' %>>Abierto</option>
                         </select>
                     </div>
 

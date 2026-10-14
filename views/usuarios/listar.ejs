@@ -58,23 +58,31 @@
                         <th class="text-left p-3 font-semibold text-gray-600">ID</th>
                         <th class="text-left p-3 font-semibold text-gray-600">Nombre</th>
                         <th class="text-left p-3 font-semibold text-gray-600">Correo</th>
-                        <th class="text-left p-3 font-semibold text-gray-600">Password</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Área</th>
                         <th class="text-left p-3 font-semibold text-gray-600">Rol</th>
+                        <th class="text-left p-3 font-semibold text-gray-600">Acciones</th>
                     </tr>
                 </thead>
                 <tbody>
                     <% usuarios.forEach(usuario => { %>
                     <tr class="border-b hover:bg-gray-50">
-                        <td class="p-3 text-gray-500"><%= usuario.id_usuario %></td>
+                        <td class="p-3 text-gray-500"><%= usuario.id %></td>
                         <td class="p-3 font-medium text-gray-700"><%= usuario.nombre %></td>
                         <td class="p-3 text-gray-500 max-w-xs truncate"><%= usuario.correo || '—' %></td>
-                        <td class="p-3 text-gray-500 max-w-xs truncate"><%= usuario.password || '—' %></td>
+                        <td class="p-3 text-gray-500 max-w-xs truncate"><%= usuario.area || '—' %></td>
                         <td class="p-3 text-gray-500"><%= usuario.rol || '-' %></td>
+                        <td class="p-3 whitespace-nowrap">
+                            <a class="mr-3 text-blue-600 hover:underline" href="/usuarios/editar/<%= usuario.id %>">Editar</a>
+                            <form action="/usuarios/eliminar" method="POST" class="inline" onsubmit="return confirm('¿Eliminar este usuario?')">
+                                <input type="hidden" name="id" value="<%= usuario.id %>">
+                                <button type="submit" class="text-red-600 hover:underline">Eliminar</button>
+                            </form>
+                        </td>
                     </tr>
                     <% }); %>
                     <% if (usuarios.length === 0) { %>
                     <tr>
-                        <td colspan="4" class="p-6 text-center text-gray-400 italic">
+                        <td colspan="6" class="p-6 text-center text-gray-400 italic">
                             No hay usuarios registrados.
                         </td>
                     </tr>

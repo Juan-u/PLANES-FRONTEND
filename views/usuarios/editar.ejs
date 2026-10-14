@@ -1,99 +1,48 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Editar Usuario</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editar usuario</title><script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="h-screen flex bg-gray-100">
-
-    <!-- SIDEBAR -->
-    <div class="w-56 bg-cyan-700 text-white flex flex-col justify-between p-4">
-        <div>
-            <p class="font-bold text-xl mb-1">IH</p>
-            <p class="text-xs text-cyan-200 mb-6">Instituto del Huila</p>
-            <nav class="space-y-2">
-                <a href="/planes" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
-                    📋 Planes de Acción
-                </a>
-                <a href="/actividades" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
-                    📋 Actividades
-                </a>
-                <a href="/usuarios" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
-                    👥 Usuarios
-                </a>
-                   <a href="/roles" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
-                    🔐 Roles
-                </a>
-                <a href="/periodos" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
-                    📊 Periodos
-                </a>
-                <a href="/areas" class="block px-3 py-2 rounded hover:bg-cyan-600 transition text-sm">
-                    A Areas
-                </a>
-
-            </nav>
-        </div>
-        <a href="/logout" onclick="return confirm('¿Desea cerrar sesión?')"
-            class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition">
-            Salir
-        </a>
+<body class="min-h-screen bg-gray-100 p-6">
+  <main class="mx-auto max-w-xl rounded bg-white p-6 shadow">
+    <div class="mb-5 flex items-center justify-between">
+      <h1 class="text-xl font-bold text-gray-700">Editar usuario</h1>
+      <a href="/usuarios" class="text-cyan-700 hover:underline">← Volver</a>
     </div>
-
-    <!-- CONTENIDO -->
-    <div class="flex-1 p-6 overflow-auto">
-        <div class="max-w-lg">
-            <div class="flex items-center gap-3 mb-6">
-                <a href="/usuarios" class="text-cyan-700 hover:underline text-sm">← Volver</a>
-                <h1 class="text-xl font-bold text-gray-700">Editar Usuario </h1>
-            </div>
-
-            <div class="bg-white rounded shadow p-6">
-                <% if (error) { %>
-                <div class="bg-red-50 border border-red-300 text-red-600 text-sm rounded p-3 mb-4">
-                    <%= error %>
-                </div>
-                <% } %>
-
-                <form action="/usuarios/editar" method="POST" class="space-y-4">
-                    <input type="hidden" name="id" value="<%= usuario.id_usuario %>">
-
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Nombre del usuario *</label>
-                        <input type="text" name="nombre" value="<%= usuario.nombre %>"
-                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
-                    </div>
-
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Correo</label>
-                        <input type="email" name="correo" value="<%= usuario.correo %>"
-                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
-                    </div>
-
-                    <div>
-                        <label class="text-sm font-medium text-gray-700">Password</label>
-                        <input type="password" name="password" value="<%= usuario.password %>"
-                            class="w-full mt-1 p-2 border rounded text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500" required>
-                    </div>
-
-        
-
-                    <div class="flex gap-3 pt-2">
-                        <button type="submit"
-                            class="flex-1 bg-cyan-700 text-white py-2 rounded hover:bg-cyan-800 transition text-sm">
-                            🔄 Actualizar Usuario
-                        </button>
-                        <a href="/usuarios"
-                            class="flex-1 text-center border border-gray-300 text-gray-600 py-2 rounded hover:bg-gray-50 transition text-sm">
-                            ❌ Cancelar
-                        </a>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
+    <% if (error) { %><div class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-700"><%= error %></div><% } %>
+    <form action="/usuarios/editar" method="POST" class="space-y-4">
+      <input type="hidden" name="id" value="<%= usuario.id %>">
+      <div><label class="block text-sm font-medium">Nombre *</label>
+        <input class="mt-1 w-full rounded border p-2" name="nombre" value="<%= usuario.nombre %>" required></div>
+      <div><label class="block text-sm font-medium">Correo *</label>
+        <input class="mt-1 w-full rounded border p-2" type="email" name="correo" value="<%= usuario.correo %>" required></div>
+      <div><label class="block text-sm font-medium">Nueva contraseña</label>
+        <input class="mt-1 w-full rounded border p-2" type="password" name="password" placeholder="Vacío = conservar contraseña"></div>
+      <div><label class="block text-sm font-medium">Área</label>
+        <select class="mt-1 w-full rounded border p-2" name="area_id">
+          <option value="">Sin área</option>
+          <% (areas || []).forEach(area => { %>
+            <option value="<%= area.id %>" <%= String(usuario.area_id || '') === String(area.id) ? 'selected' : '' %>><%= area.nombre %></option>
+          <% }) %>
+        </select></div>
+      <div><label class="block text-sm font-medium">Estado</label>
+        <select class="mt-1 w-full rounded border p-2" name="estado">
+          <option value="Activo" <%= (usuario.estado || 'Activo') === 'Activo' ? 'selected' : '' %>>Activo</option>
+          <option value="Inactivo" <%= usuario.estado === 'Inactivo' ? 'selected' : '' %>>Inactivo</option>
+        </select></div>
+      <div><label class="block text-sm font-medium">Rol *</label>
+        <select class="mt-1 w-full rounded border p-2" name="rol_id" required>
+          <option value="">Seleccione un rol</option>
+          <% (roles || []).forEach(rol => { %>
+            <option value="<%= rol.id %>" <%= String(usuario.rol_id || '') === String(rol.id) ? 'selected' : '' %>><%= rol.nombre %></option>
+          <% }) %>
+        </select></div>
+      <div class="flex gap-3 pt-2">
+        <button class="flex-1 rounded bg-cyan-700 p-2 text-white hover:bg-cyan-800" type="submit">Guardar cambios</button>
+        <a class="flex-1 rounded border p-2 text-center" href="/usuarios">Cancelar</a>
+      </div>
+    </form>
+  </main>
 </body>
 </html>
-    
