@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Planes de acción</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="/menu"><span class="brand-mark" aria-hidden="true">PA</span><span>Planes de Acción</span></a>
+      <nav class="navbar-links" aria-label="Navegación principal"><a href="/menu">Menú</a><a href="/logout">Cerrar sesión</a></nav>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card" aria-labelledby="plans-title">
+      <div class="page-heading"><div><h1 id="plans-title">Planes de acción</h1><p>Consulta los planes autorizados para tu cuenta.</p></div></div>
+      <% if (canReadActivities) { %><p><a class="btn btn-secondary" href="/actividades">Consultar actividades</a></p><% } %>
+      <% if (notice) { %><p class="alert alert-success" role="status"><%= notice %></p><% } %>
+      <% if (error) { %><p class="alert alert-error" role="alert"><%= error %></p><% } %>
+      <% if (canCreatePlans) { %>
+        <details class="card">
+          <summary>Crear plan de acción</summary>
+          <form action="/planes/crear" method="post" class="form-grid">
+            <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+            <label for="plan-nombre">Nombre</label>
+            <input id="plan-nombre" name="nombre" maxlength="150" required>
+            <label for="plan-descripcion">Descripción</label>
+            <textarea id="plan-descripcion" name="descripcion" rows="4"></textarea>
+            <button class="btn btn-primary" type="submit">Crear plan</button>
+          </form>
+        </details>
+      <% } %>
+      <% if (planes.length) { %>
+        <div class="table-wrap"><table><thead><tr><th scope="col">ID</th><th scope="col">Nombre</th><th scope="col">Descripción</th><th scope="col">Creado</th><th scope="col">Estado</th><% if (canUpdatePlans) { %><th scope="col">Acciones</th><% } %></tr></thead><tbody>
+          <% planes.forEach((plan) => { %><tr><td><%= plan.id_plan %></td><td><%= plan.nombre %></td><td><%= plan.descripcion ?? '' %></td><td><%= plan.fecha_creacion ?? '' %></td><td><%= plan.estado ?? '' %></td>
+            <% if (canUpdatePlans) { %><td><details><summary>Editar</summary><form action="/planes/editar" method="post" class="form-grid">
+              <input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="id" value="<%= plan.id_plan %>">
+              <label for="plan-nombre-<%= plan.id_plan %>">Nombre</label><input id="plan-nombre-<%= plan.id_plan %>" name="nombre" value="<%= plan.nombre %>" maxlength="150" required>
+              <label for="plan-descripcion-<%= plan.id_plan %>">Descripción</label><textarea id="plan-descripcion-<%= plan.id_plan %>" name="descripcion" rows="3"><%= plan.descripcion ?? '' %></textarea>
+              <button class="btn btn-secondary" type="submit">Guardar cambios</button>
+            </form></details></td><% } %></tr><% }); %>
+        </tbody></table></div>
+      <% } else { %><p class="empty-state">No hay planes disponibles para mostrar.</p><% } %>
+    </section>
+  </main>
+</body>
+</html>

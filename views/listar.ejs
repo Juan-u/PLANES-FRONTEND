@@ -3,60 +3,83 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lista de Usuarios</title>
+    <title>Usuarios | Planes de Acción</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <h1>Mi Aplicación</h1>
-        <div class="navbar-links">
-            <a href="/menu">Menú</a>
-            <a href="/logout">Cerrar Sesión</a>
+    <header class="app-header">
+        <div class="header-inner">
+            <a class="brand" href="/menu">
+                <span class="brand-mark" aria-hidden="true">PA</span>
+                <span>Planes de Acción</span>
+            </a>
+            <nav class="navbar-links" aria-label="Navegación principal">
+                <a href="/menu">Menú</a>
+                <% if (canReadPlans) { %><a href="/planes">Planes</a><% } %>
+                <a href="/usuarios" aria-current="page">Usuarios</a>
+                <% if (canReadRoles) { %><a href="/roles">Roles y permisos</a><% } %>
+                <a href="/logout">Cerrar sesión</a>
+            </nav>
         </div>
-    </nav>
-    
-    <div class="container">
-        <div class="card">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-                <h1>Lista de Usuarios</h1>
-                <a href="/usuarios/nuevo" class="btn btn-primary">+ Nuevo Usuario</a>
+    </header>
+
+    <main class="container">
+        <section class="card" aria-labelledby="users-title">
+            <div class="page-heading">
+                <h1 id="users-title">Usuarios</h1>
+                <% if (canCreateUsers) { %><a href="/usuarios/nuevo" class="btn btn-primary">+ Nuevo usuario</a><% } %>
             </div>
-            
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Nombre</th>
-                        <th>Email</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <% usuarios.forEach(usuario => { %>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
                         <tr>
-                            <td><%= usuario.id %></td>
-                            <td><%= usuario.nombre %></td>
-                            <td><%= usuario.email %></td>
-                            <td>
-                                <div class="actions">
-                                    <a href="/usuarios/editar/<%= usuario.id %>" class="btn btn-primary">Editar</a>
-                                    <form action="/usuarios/eliminar" method="POST" style="display: inline;">
-                                        <input type="hidden" name="id" value="<%= usuario.id %>">
-                                        <button type="submit" class="btn btn-danger" onclick="return confirm('¿Eliminar este usuario?')">Eliminar</button>
-                                    </form>
-                                </div>
-                            </td>
+                            <th scope="col">ID</th>
+                            <th scope="col">Nombre</th>
+                            <th scope="col">Correo</th>
+                            <th scope="col">Estado</th>
+                            <th scope="col">Acciones</th>
                         </tr>
-                    <% }); %>
-                </tbody>
-            </table>
-            
+                    </thead>
+                    <tbody>
+                        <% usuarios.forEach(usuario => { %>
+                            <tr>
+                                <td><%= usuario.id %></td>
+                                <td><%= usuario.nombre %></td>
+                                <td><%= usuario.email %></td>
+                                <td><%= usuario.estado %></td>
+                                <td>
+                                    <div class="actions">
+                                        <% if (canUpdateUsers) { %><a href="/usuarios/editar/<%= usuario.id %>" class="btn btn-primary">Editar</a><% } %>
+                                        <% if (String(usuario.estado).toLowerCase() === 'activo') { %>
+                                            <% if (canDeactivateUsers) { %><form action="/usuarios/eliminar" method="POST">
+                                                <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+                                                <input type="hidden" name="id" value="<%= usuario.id %>">
+                                                <label class="sr-only" for="deactivate-reason-<%= usuario.id %>">Motivo de desactivación</label>
+                                                <input class="form-control" id="deactivate-reason-<%= usuario.id %>" name="reason" maxlength="4000" required placeholder="Motivo">
+                                                <button type="submit" class="btn btn-danger">Desactivar</button>
+                                            </form><% } %>
+                                        <% } else { %>
+                                            <% if (canUpdateUsers) { %><form action="/usuarios/reactivar" method="POST">
+                                                <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+                                                <input type="hidden" name="id" value="<%= usuario.id %>">
+                                                <label class="sr-only" for="reactivate-reason-<%= usuario.id %>">Motivo de reactivación</label>
+                                                <input class="form-control" id="reactivate-reason-<%= usuario.id %>" name="reason" maxlength="4000" required placeholder="Motivo">
+                                                <button type="submit" class="btn btn-primary">Reactivar</button>
+                                            </form><% } %>
+                                        <% } %>
+                                    </div>
+                                </td>
+                            </tr>
+                        <% }); %>
+                    </tbody>
+                </table>
+            </div>
+
             <% if (usuarios.length === 0) { %>
-                <p style="text-align: center; color: #666; margin-top: 2rem;">
-                    No hay usuarios registrados.
-                </p>
+                <p class="empty-state">No hay usuarios registrados.</p>
             <% } %>
-        </div>
-    </div>
+        </section>
+    </main>
 </body>
 </html>

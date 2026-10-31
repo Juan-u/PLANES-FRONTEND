@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Informes | Planes de Acción</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="brand" href="/menu"><span class="brand-mark" aria-hidden="true">PA</span><span>Planes de Acción</span></a>
+      <nav class="navbar-links" aria-label="Navegación principal">
+        <a href="/planes">Planes</a><a href="/actividades">Actividades</a><a href="/seguimiento">Seguimiento</a><a href="/logout">Cerrar sesión</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container">
+    <section class="card" aria-labelledby="report-title">
+      <div class="page-heading"><div><h1 id="report-title">Informes</h1><p>Consulta calificaciones almacenadas y, cuando tu permiso lo permite, indicadores del seguimiento aprobado.</p></div></div>
+      <form action="/informes" method="get" class="form-grid">
+        <label for="report-plan">Plan</label>
+        <select id="report-plan" name="planId"><option value="">Todos los planes</option><% plans.forEach((plan) => { %><option value="<%= plan.id_plan %>" <%= String(filters.planId ?? '') === String(plan.id_plan) ? 'selected' : '' %>><%= plan.nombre %></option><% }); %></select>
+        <label for="report-quarter">Trimestre de calificación</label>
+        <input id="report-quarter" name="trimestre" type="number" min="1" max="4" value="<%= filters.trimestre ?? '' %>">
+        <% if (canReadFollowup) { %>
+          <label for="followup-period">Período de seguimiento</label>
+          <select id="followup-period" name="periodId"><option value="">Selecciona un período</option><% followupPeriods.forEach((period) => { %><option value="<%= period.id_periodo %>" <%= String(selectedFollowupPeriodId) === String(period.id_periodo) ? 'selected' : '' %>><%= period.anio %> · T<%= period.trimestre %></option><% }); %></select>
+        <% } %>
+        <button class="btn btn-secondary" type="submit">Consultar</button>
+      </form>
+      <% if (canExport) { %><p><a class="btn btn-primary" href="/informes/calificaciones.csv<%= filterQuery ? `?${filterQuery}` : '' %>">Exportar calificaciones CSV</a></p><% } %>
+
+      <% if (canReadFollowup && followupSummary) { %>
+        <section class="card" aria-labelledby="followup-summary-title">
+          <h2 id="followup-summary-title">Indicadores de seguimiento</h2>
+          <p>Período <strong><%= followupSummary.period.anio %> · T<%= followupSummary.period.trimestre %></strong></p>
+          <div class="table-wrap"><table><thead><tr><th scope="col">Actividades que requieren seguimiento</th><th scope="col">Con avance aprobado</th><th scope="col">Pendientes de decisión</th><th scope="col">Promedio aprobado</th><th scope="col">Cobertura</th></tr></thead><tbody><tr>
+            <td><%= followupSummary.activitiesDue %></td><td><%= followupSummary.activitiesApproved %></td><td><%= followupSummary.activitiesPending %></td>
+            <td><%= typeof followupSummary.summary.promedioAvance === 'number' ? `${followupSummary.summary.promedioAvance}%` : followupSummary.summary.promedioAvance.explicacion %></td>
+            <td><%= typeof followupSummary.summary.coberturaTrimestral === 'number' ? `${followupSummary.summary.coberturaTrimestral}%` : followupSummary.summary.coberturaTrimestral.explicacion %></td>
+          </tr></tbody></table></div>
+          <p><a href="/seguimiento?periodId=<%= encodeURIComponent(selectedFollowupPeriodId) %>">Ver seguimientos e historial del período</a></p>
+        </section>
+      <% } else if (canReadFollowup && followupPeriods.length === 0) { %>
+        <p class="empty-state">Todavía no hay períodos de seguimiento registrados.</p>
+      <% } %>
+
+      <h2>Calificaciones registradas</h2>
+      <% if (records.length) { %>
+        <div class="table-wrap"><table><thead><tr><th scope="col">ID</th><th scope="col">Plan</th><th scope="col">Trimestre</th><th scope="col">Puntaje</th><th scope="col">Observaciones</th></tr></thead><tbody><% records.forEach((record) => { %><tr><td><%= record.id_calificacion %></td><td><%= record.nombre_plan ?? record.id_plan ?? '' %></td><td><%= record.trimestre ?? '' %></td><td><%= record.puntaje ?? '' %></td><td><%= record.observaciones_planeacion ?? '' %></td></tr><% }); %></tbody></table></div>
+      <% } else { %><p class="empty-state">No hay calificaciones almacenadas para esos filtros.</p><% } %>
+    </section>
+  </main>
+</body>
+</html>

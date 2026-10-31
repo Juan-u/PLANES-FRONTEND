@@ -2,6 +2,12 @@ import express from "express";
 import session from "express-session";
 import rutas from "./app/routes/routes.views.js";
 
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret) {
+    console.error("No se puede iniciar la aplicación: falta configurar SESSION_SECRET.");
+    process.exit(1);
+}
+
 const app = express();
 const PORT = 4000;
 
@@ -18,7 +24,7 @@ app.use(express.json());
 
 // Configuración de sesiones (2 horas de duración)
 app.use(session({
-    secret: "mi_secreto_super_seguro",
+    secret: sessionSecret,
     resave: false,
     saveUninitialized: false,
     cookie: { maxAge: 2 * 60 * 60 * 1000 }

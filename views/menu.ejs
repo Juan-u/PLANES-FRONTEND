@@ -3,34 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Menú Principal</title>
+    <title>Menú principal | Planes de Acción</title>
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-    <nav class="navbar">
-        <h1>Mi Aplicación</h1>
-        <div class="navbar-links">
-            <a href="/usuarios">Ver Usuarios</a>
-            <a href="/logout">Cerrar Sesión</a>
+    <header class="app-header">
+        <div class="header-inner">
+            <a class="brand" href="/menu">
+                <span class="brand-mark" aria-hidden="true">PA</span>
+                <span>Planes de Acción</span>
+            </a>
+            <nav class="navbar-links" aria-label="Navegación principal">
+                <% if (canReadPlans) { %><a href="/planes">Planes</a><% } %>
+                <% if (canReadActivities) { %><a href="/actividades">Actividades</a><% } %>
+                <% if (canReadReports) { %><a href="/informes">Informes</a><% } %>
+                <% if (canReadFollowup) { %><a href="/seguimiento">Seguimiento</a><% } %>
+                <% if (canManageUsers) { %><a href="/usuarios">Usuarios</a><% } %>
+                <% if (canManageRoles) { %><a href="/roles">Roles y permisos</a><% } %>
+                <a href="/logout">Cerrar sesión</a>
+            </nav>
         </div>
-    </nav>
-    
-    <div class="container">
-        <div class="card" style="text-align: center;">
-            <h1>¡Bienvenido! 👋</h1>
-            <p style="margin: 1.5rem 0; color: #666;">
-                Has iniciado sesión correctamente.
-            </p>
-            
-            <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem;">
-                <a href="/usuarios" class="btn btn-primary">
-                    📋 Ver Usuarios
-                </a>
-                <a href="/logout" class="btn btn-secondary">
-                    🚪 Cerrar Sesión
-                </a>
+    </header>
+
+    <main class="container">
+        <section class="card welcome-card" aria-labelledby="welcome-title">
+            <h1 id="welcome-title">¡Bienvenido!</h1>
+            <p>Has iniciado sesión correctamente.</p>
+            <div class="welcome-actions">
+                <% if (canManageUsers) { %><a href="/usuarios" class="btn btn-primary">Ver usuarios</a><% } %>
+                <% if (canReadPlans) { %><a href="/planes" class="btn btn-primary">Ver planes</a><% } %>
+                <% if (canReadActivities) { %><a href="/actividades" class="btn btn-primary">Ver actividades</a><% } %>
+                <% if (canReadReports) { %><a href="/informes" class="btn btn-primary">Ver informes</a><% } %>
+                <% if (canReadFollowup) { %><a href="/seguimiento" class="btn btn-primary">Ver seguimiento</a><% } %>
+                <% if (canManageRoles) { %><a href="/roles" class="btn btn-primary">Administrar roles</a><% } %>
+                <a href="/logout" class="btn btn-secondary">Cerrar sesión</a>
             </div>
-        </div>
-    </div>
+        </section>
+    </main>
 </body>
 </html>

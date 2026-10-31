@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Detalle de actividad | Planes de Acción</title><link rel="stylesheet" href="/style.css"></head>
+<body><header class="app-header"><div class="header-inner"><a class="brand" href="/menu"><span class="brand-mark" aria-hidden="true">PA</span><span>Planes de Acción</span></a><nav class="navbar-links" aria-label="Navegación principal"><a href="/actividades">Actividades</a><a href="/logout">Cerrar sesión</a></nav></div></header>
+<main class="container"><section class="card" aria-labelledby="activity-title"><div class="page-heading"><div><h1 id="activity-title">Actividad #<%= activity.id_actividad %></h1><p>Detalle de la actividad asociada al plan #<%= activity.id_plan %>.</p></div></div>
+<dl><dt>Descripción</dt><dd><%= activity.descripcion ?? 'Sin descripción' %></dd><dt>Responsable</dt><dd><%= activity.responsable ?? 'Sin responsable' %></dd><dt>Fecha de inicio</dt><dd><%= activity.fecha_inicio ?? 'Sin fecha' %></dd><dt>Fecha de fin</dt><dd><%= activity.fecha_fin ?? 'Sin fecha' %></dd><dt>Estado</dt><dd><%= activity.estado ?? 'Sin estado' %></dd></dl>
+<% if (canReadEvidence) { %><h2>Evidencias registradas</h2><% if (evidences.length) { %><ul><% evidences.forEach((item) => { %><li><strong><%= item.fecha_subida ?? 'Sin fecha' %></strong> · <% if (item.nombre_original) { %><a href="/evidencias/<%= item.id_evidencia %>/descargar"><%= item.nombre_original %></a> (<%= item.bytes %> bytes)<% } else { %>Archivo heredado sin archivo privado asociado<% } %> · <%= item.observaciones ?? 'Sin observaciones' %></li><% }); %></ul><% } else { %><p class="empty-state">No hay metadatos de evidencias registrados.</p><% } %><% } %>
+<% if (canUploadEvidence) { %><h2>Cargar evidencia</h2><p id="upload-error" class="alert alert-error" role="alert" hidden></p><form id="evidence-upload" action="/evidencias/cargar" method="post" class="form-grid"><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="id_actividad" value="<%= activity.id_actividad %>"><label for="evidence-file">Archivo (PDF, PNG, JPEG o texto; máximo 64 KB)</label><input id="evidence-file" type="file" accept="application/pdf,image/png,image/jpeg,text/plain" required><label for="evidence-notes">Observaciones</label><textarea id="evidence-notes" name="observaciones" rows="3" maxlength="2000"></textarea><button class="btn btn-primary" type="submit">Subir evidencia</button></form><script>
+document.getElementById('evidence-upload').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const file = document.getElementById('evidence-file').files[0];
+  const error = document.getElementById('upload-error');
+  if (!file || file.size > 65536) { error.hidden = false; error.textContent = 'Selecciona un archivo permitido de hasta 64 KB.'; return; }
+  try {
+    const dataUrl = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
+    const content = String(dataUrl).split(',')[1];
+    const response = await fetch(form.action, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ csrfToken: form.elements.csrfToken.value, id_actividad: form.elements.id_actividad.value, nombre_original: file.name, mime_type: file.type, contenido_base64: content, observaciones: document.getElementById('evidence-notes').value }) });
+    if (!response.ok) throw new Error('upload');
+    window.location.reload();
+  } catch { error.hidden = false; error.textContent = 'No fue posible cargar el archivo. Verifica el tipo y vuelve a intentar.'; }
+});
+</script><% } %>
+<a class="btn btn-secondary" href="/actividades">Volver a actividades</a></section></main></body></html>
