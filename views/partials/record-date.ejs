@@ -1,0 +1,10 @@
+<% const rawDate = value == null || value === '' ? 'Sin fecha' : value;
+   // Estos campos representan días de calendario, no instantes que deban convertirse de zona.
+   const parts = typeof rawDate === 'string' ? /^(\d{4})-(\d{2})-(\d{2})(?:$|T| )/.exec(rawDate) : null;
+   let calendarDate = null;
+   if (parts) {
+     const year = Number(parts[1]), month = Number(parts[2]), day = Number(parts[3]);
+     const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+     const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+     if (year > 0 && month >= 1 && month <= 12 && day >= 1 && day <= days[month - 1]) calendarDate = parts;
+   } %><% if (calendarDate) { %><time datetime="<%= calendarDate[0].slice(0, 10) %>"><%= calendarDate[3] %>/<%= calendarDate[2] %>/<%= calendarDate[1] %></time><% } else { %><%= rawDate %><% } %>

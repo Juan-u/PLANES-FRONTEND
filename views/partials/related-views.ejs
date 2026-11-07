@@ -1,0 +1,11 @@
+<% const relatedNav=typeof navigation==='undefined'?{}:navigation;
+const contextQuery=new URLSearchParams();
+for(const [key,value]of Object.entries(contextFilters||{}))if(['planId','activityId','periodId'].includes(key)&&/^[1-9]\d*$/.test(String(value)))contextQuery.set(key,String(value));
+const relatedLinks=[];
+if(relatedNav.activities&&contextQuery.has('activityId'))relatedLinks.push(['/actividades/'+contextQuery.get('activityId'),'Detalle de actividad']);
+if(relatedNav.followup)relatedLinks.push(['/seguimiento'+(contextQuery.size?'?'+contextQuery:''),'Seguimiento y evidencias']);
+if(relatedNav.plans&&relatedNav.activities&&relatedNav.followup){
+ if(relatedNav.reports)relatedLinks.push(['/informes/institucional'+(contextQuery.size?'?'+contextQuery:''),'Informe del contexto']);
+ if(relatedNav.internalControl)relatedLinks.push(['/control-interno/contexto'+(contextQuery.size?'?'+contextQuery:''),'Consulta de Control Interno']);
+}
+%><% if(relatedLinks.length){ %><nav class="related-views" aria-label="Consultas relacionadas"><% for(const [href,label]of relatedLinks){if(typeof currentPath!=='undefined'&&href.split('?')[0]===currentPath)continue; %><a href="<%= href %>"><%= label %></a><% } %></nav><% } %>

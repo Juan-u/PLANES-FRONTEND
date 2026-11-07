@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
+import {backendApiUrl} from '../services/runtime-config.js';
 
-const SESSION_CHECK_URL = 'http://localhost:3000/api/session';
+const SESSION_CHECK_URL = `${backendApiUrl()}/session`;
 const TEMPORARY_ERROR = 'No se pudo verificar la sesión. Inténtalo de nuevo.';
 
 function respondUnavailable(res) {

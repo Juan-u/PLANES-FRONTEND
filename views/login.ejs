@@ -3,23 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login</title>
+    <title>Iniciar sesión | Planes de Acción</title>
     <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
 </head>
-<body class="auth-page">
+<body class="auth-page" data-time-zone="America/Bogota">
     <main class="auth-shell">
+        <section class="auth-context" aria-label="Planes de Acción e información local">
         <a class="brand auth-brand" href="/" aria-label="Planes de Acción, inicio">
             <span class="brand-mark" aria-hidden="true">PA</span>
             <span>Planes de Acción</span>
         </a>
+        <div class="auth-introduction"><h1>Planes de Acción</h1><p>Un espacio para organizar los planes y dar seguimiento a la gestión.</p></div>
+        <div class="auth-local-time" aria-label="Fecha y hora de Colombia">
+            <time data-current-date></time>
+            <time data-current-time></time>
+            <span>Hora de Colombia</span>
+        </div>
+        <section class="auth-weather" aria-labelledby="weather-title">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17a5 5 0 1 1 9-5h1a3 3 0 0 1 0 6H7M5 4l1 1M2 10h2M11 2v2"/><path d="m10 14 4 4m0-4-4 4"/></svg>
+            <div><h2 id="weather-title">Villavicencio, Meta, Colombia</h2><p>Clima no disponible</p></div>
+        </section>
+        </section>
         <section class="card card--auth" aria-labelledby="login-title">
-            <h1 id="login-title">Iniciar sesión</h1>
+            <h2 id="login-title">Iniciar sesión</h2>
+            <p class="auth-form-help">Ingresa con el correo de tu cuenta.</p>
 
             <% if (error) { %>
                 <div class="alert error" role="alert"><%= error %></div>
             <% } %>
 
-            <form action="/login" method="POST">
+            <form action="/login" method="POST" data-loading-form>
                 <div class="form-group">
                     <label for="correo">Correo electrónico</label>
                     <input class="form-control" type="email" id="correo" name="correo" autocomplete="username" required>
@@ -27,10 +41,10 @@
 
                 <div class="form-group">
                     <label for="password">Contraseña</label>
-                    <input class="form-control" type="password" id="password" name="password" autocomplete="current-password" required>
+                    <span class="password-field"><input class="form-control" type="password" id="password" name="password" autocomplete="current-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="password" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/><path class="password-eye-slash" d="m4 4 16 16"/></svg></button></span>
                 </div>
 
-                <button type="submit" class="btn btn-primary">Ingresar</button>
+                <button type="submit" class="btn btn-primary auth-submit">Ingresar</button>
             </form>
         </section>
     </main>

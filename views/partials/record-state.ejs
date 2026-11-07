@@ -1,0 +1,7 @@
+<% const stateLabels={
+ pending:'Pendiente',approved:'Aprobado',rejected:'Rechazado',open:'Abierto',closed:'Cerrado',
+ sin_expediente:'Sin expediente institucional',borrador:'Borrador',presentado:'Presentado a Planeación',en_revision:'En revisión',devuelto:'Devuelto',aprobado:'Aprobado',
+ registrado:'Registrado',en_atencion:'En atención',atendido:'Atendido',pendiente:'Pendiente',atendida:'Atendida',
+ create:'Hallazgo registrado',recommend:'Recomendación registrada',update_finding:'Hallazgo actualizado',update_recommendation:'Atención de recomendación actualizada',
+ ficha_actualizada:'Ficha institucional actualizada',presentar:'Presentación registrada',recibir:'Recepción registrada',observar:'Observación registrada',devolver:'Devolución registrada',aprobar:'Aprobación registrada'
+}; const stateValue=typeof value==='string'?value:''; %><%= stateLabels[stateValue]||stateValue||'Sin información' %>

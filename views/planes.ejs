@@ -6,42 +6,46 @@
   <title>Planes de acción</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <header class="app-header">
-    <div class="header-inner">
-      <a class="brand" href="/menu"><span class="brand-mark" aria-hidden="true">PA</span><span>Planes de Acción</span></a>
-      <nav class="navbar-links" aria-label="Navegación principal"><a href="/menu">Menú</a><a href="/logout">Cerrar sesión</a></nav>
-    </div>
-  </header>
-  <main class="container">
+<body class="app-body records-page" data-time-zone="<%= (typeof timeZone !== 'undefined' ? timeZone : 'America/Bogota') %>">
+  <%- include('partials/navigation', { active: 'planes', pageTitle: 'Planes de acción', navigation: typeof navigation === 'undefined' ? {} : navigation }) %>
+  <% const displayLabel = (value) => typeof labelForDisplay === 'function' ? labelForDisplay(value) : (value ?? 'Sin estado'); %>
+  <main id="contenido" tabindex="-1" class="container">
     <section class="card" aria-labelledby="plans-title">
       <div class="page-heading"><div><h1 id="plans-title">Planes de acción</h1><p>Consulta los planes autorizados para tu cuenta.</p></div></div>
-      <% if (canReadActivities) { %><p><a class="btn btn-secondary" href="/actividades">Consultar actividades</a></p><% } %>
+      <% const workflowReady=typeof workflowAvailable!=='undefined'&&workflowAvailable;const editable=plan=>!plan.flujo||['borrador','devuelto'].includes(plan.flujo.estado); %><% if(workflowReady){ %><p><a class="btn btn-secondary" href="/planeacion">Bandeja de Planeaci&#243;n</a></p><% } %><% if (canReadActivities) { %><p><a class="btn btn-secondary" href="/actividades">Consultar actividades</a></p><% } %>
       <% if (notice) { %><p class="alert alert-success" role="status"><%= notice %></p><% } %>
       <% if (error) { %><p class="alert alert-error" role="alert"><%= error %></p><% } %>
-      <% if (canCreatePlans) { %>
-        <details class="card">
+      <% const recovery = typeof recordRecovery === 'undefined' ? null : recordRecovery; const creation = recovery && !recovery.id ? recovery : {}; %>
+      <% if (typeof catalogUnavailable !== 'undefined' && catalogUnavailable) { %><p class="alert alert-error" role="alert">El cat&#225;logo institucional no est&#225; disponible. La ficha requiere la migraci&#243;n del Bloque C.</p><% } %>
+      <% if (recovery) { %><p class="alert" role="status">Se conserva lo escrito en la operaci&#243;n anterior. Revisa los datos. Si hubo un cambio en otra sesi&#243;n, compara tu borrador antes de <a href="/planes?discardDraft=1">descartarlo y cargar el registro actualizado</a>.</p><% } %><% if (canCreatePlans) { %>
+        <details class="card" <%= recovery && !recovery.id ? 'open' : '' %>>
           <summary>Crear plan de acción</summary>
-          <form action="/planes/crear" method="post" class="form-grid">
+          <p class="form-help">Nombre obligatorio. Descripci&#243;n opcional.</p><form action="/planes/crear" method="post" class="form-grid">
             <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
-            <label for="plan-nombre">Nombre</label>
-            <input id="plan-nombre" name="nombre" maxlength="150" required>
-            <label for="plan-descripcion">Descripción</label>
-            <textarea id="plan-descripcion" name="descripcion" rows="4"></textarea>
-            <button class="btn btn-primary" type="submit">Crear plan</button>
+            <div class="field"><label for="plan-nombre">Nombre</label><input id="plan-nombre" name="nombre" maxlength="150" required value="<%= creation.nombre ?? '' %>"></div>
+            <div class="field"><label for="plan-descripcion">Descripción</label><textarea id="plan-descripcion" name="descripcion" rows="4"><%= creation.descripcion ?? '' %></textarea></div>
+            <%- include('partials/institutional-fields', { kind: 'plan', draft: creation.institucional, processes: typeof processes === 'undefined' ? [] : processes }) %><button class="btn btn-primary" type="submit">Crear plan</button>
           </form>
         </details>
       <% } %>
       <% if (planes.length) { %>
-        <div class="table-wrap"><table><thead><tr><th scope="col">ID</th><th scope="col">Nombre</th><th scope="col">Descripción</th><th scope="col">Creado</th><th scope="col">Estado</th><% if (canUpdatePlans) { %><th scope="col">Acciones</th><% } %></tr></thead><tbody>
-          <% planes.forEach((plan) => { %><tr><td><%= plan.id_plan %></td><td><%= plan.nombre %></td><td><%= plan.descripcion ?? '' %></td><td><%= plan.fecha_creacion ?? '' %></td><td><%= plan.estado ?? '' %></td>
-            <% if (canUpdatePlans) { %><td><details><summary>Editar</summary><form action="/planes/editar" method="post" class="form-grid">
-              <input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="id" value="<%= plan.id_plan %>">
-              <label for="plan-nombre-<%= plan.id_plan %>">Nombre</label><input id="plan-nombre-<%= plan.id_plan %>" name="nombre" value="<%= plan.nombre %>" maxlength="150" required>
-              <label for="plan-descripcion-<%= plan.id_plan %>">Descripción</label><textarea id="plan-descripcion-<%= plan.id_plan %>" name="descripcion" rows="3"><%= plan.descripcion ?? '' %></textarea>
-              <button class="btn btn-secondary" type="submit">Guardar cambios</button>
-            </form></details></td><% } %></tr><% }); %>
+        <div class="table-wrap" role="region" aria-label="Planes de acci&#243;n" tabindex="0"><table><thead><tr><th scope="col">ID</th><th scope="col">Nombre</th><th scope="col">Descripción</th><th scope="col">Creado</th><th scope="col"><%= workflowReady?'Estado heredado':'Estado' %></th><% if (canUpdatePlans) { %><th scope="col">Acciones</th><% } %></tr></thead><tbody>
+          <% planes.forEach((plan) => { %><tr><td><%= plan.id_plan %></td><td><%= plan.nombre %><% if (plan.institucional || plan.flujo) { %><small class="institutional-draft-label"><% if(plan.flujo){ %>Estado institucional: <% } %><%= plan.flujo ? ({borrador:'Borrador',presentado:'Presentado a Planeación',en_revision:'En revisión',devuelto:'Devuelto para correcciones',aprobado:'Aprobado'})[plan.flujo.estado] : 'Ficha en borrador' %></small><% } %><% if(workflowReady){ %><a href="/planes/<%= plan.id_plan %>/gestion">Gesti&#243;n institucional</a><% } %></td><td><%= plan.descripcion ?? '' %></td><td><%- include('partials/record-date', { value: plan.fecha_creacion }) %></td><td><span class="status-pill record-status" data-state="<%= plan.estado %>"><%= displayLabel(plan.estado) %></span></td>
+            <% if (canUpdatePlans) { %><td><% if(editable(plan)){ %><button class="btn btn-secondary" type="button" data-record-open aria-controls="edit-plan-<%= plan.id_plan %>" aria-expanded="false">Editar<span class="sr-only"> plan #<%= plan.id_plan %></span></button><% }else{ %>Edici&#243;n bloqueada por estado institucional<% } %></td><% } %></tr><% }); %>
         </tbody></table></div>
+        <% planes.filter(plan => plan.institucional).forEach(plan => { %><section class="institutional-section"><h2>Plan #<%= plan.id_plan %>: <%= plan.nombre %></h2><%- include('partials/institutional-read', { draft: plan.institucional }) %></section><% }); %>
+        <% if (canUpdatePlans) { %><section class="record-editors" aria-label="Edici&#243;n de registros">
+          <% planes.filter(editable).forEach((plan) => { %><details class="record-editor" id="edit-plan-<%= plan.id_plan %>" data-record-editor <%= recovery?.id === String(plan.id_plan) ? 'open' : '' %>>
+            <summary>Editar plan #<%= plan.id_plan %></summary>
+            <form action="/planes/editar" method="post" class="form-grid">
+              <input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="id" value="<%= plan.id_plan %>">
+              <div class="field"><label for="plan-nombre-<%= plan.id_plan %>">Nombre</label><input id="plan-nombre-<%= plan.id_plan %>" name="nombre" value="<%= plan.nombre %>" maxlength="150" required></div>
+              <div class="field"><label for="plan-descripcion-<%= plan.id_plan %>">Descripción</label><textarea id="plan-descripcion-<%= plan.id_plan %>" name="descripcion" rows="3"><%= plan.descripcion ?? '' %></textarea></div>
+              <%- include('partials/institutional-fields', { kind: 'plan', draft: plan.institucional, processes: typeof processes === 'undefined' ? [] : processes }) %><div class="form-actions form-grid__full"><button class="btn btn-secondary" type="submit">Guardar cambios</button><button class="btn btn-secondary" type="button" data-record-close>Cancelar</button></div>
+            </form>
+          </details><% }); %>
+        </section><% } %>
+
       <% } else { %><p class="empty-state">No hay planes disponibles para mostrar.</p><% } %>
     </section>
   </main>

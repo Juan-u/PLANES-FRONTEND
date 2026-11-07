@@ -1,7 +1,48 @@
+import { createPlanWorkflowViews } from './plan-workflow.views.js';
+import {createInstitutionalReportViews} from './institutional-reports.views.js';
+import { institutionalBody, retainDraft, recoveredRecord } from './institutional-form.js';
 import fetch from "node-fetch";
-import { randomBytes, timingSafeEqual } from "node:crypto";
+import {backendApiUrl} from '../services/runtime-config.js';
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createWeatherService } from "../services/weather.service.js";
 
-const API_URL = "http://localhost:3000/api";
+const API_URL = backendApiUrl();
+const weatherService = createWeatherService({ apiKey: process.env.OPEN_METEO_API_KEY, fetchImpl: fetch, defaultCity: process.env.WEATHER_CITY || "Villavicencio, Meta, Colombia", latitude: process.env.WEATHER_LATITUDE || "-4.142", longitude: process.env.WEATHER_LONGITUDE || "-73.626" });
+
+function navigationFor(permissions = []) {
+    const values = new Set(permissions);
+    const canReadInternalControl = ['M15.audit.read', 'M03.plans.read', 'M04.activities.read', 'M05.followup.read']
+        .every((permission) => values.has(permission));
+    return { ...(canReadInternalControl ? { internalControl: true } : {}), plans: values.has("M03.plans.read"), activities: values.has("M04.activities.read"), followup: values.has("M05.followup.read"), reports: values.has("M12.reports.read"), users: values.has("M01.users.read"), roles: ["M01.roles.read", "M01.permissions.read", "M01.requests.read", "M01.assignments.read"].some((permission) => values.has(permission)) };
+}
+
+export async function getWeather(req, res) {
+    const city = typeof req.query?.city === "string" ? req.query.city : "";
+    if (city.length > 100 || /[<>\u0000-\u001f]/.test(city)) return res.status(400).json({ available: false });
+    return res.json(await weatherService.current(city));
+}
+
+export function convertCsvToExcelSemicolon(csv) {
+    const source = String(csv ?? "").replace(/^\uFEFF/, "");
+    const rows = [];
+    let row = [], field = "", quoted = false;
+    for (let index = 0; index < source.length; index++) {
+        const character = source[index];
+        if (quoted) {
+            if (character === '"' && source[index + 1] === '"') { field += '"'; index++; }
+            else if (character === '"') quoted = false;
+            else field += character;
+        } else if (character === '"' && field.length === 0) quoted = true;
+        else if (character === ',') { row.push(field); field = ""; }
+        else if (character === "\r" || character === "\n") {
+            row.push(field); rows.push(row); row = []; field = "";
+            if (character === "\r" && source[index + 1] === "\n") index++;
+        } else field += character;
+    }
+    if (field.length || row.length || rows.length === 0) { row.push(field); rows.push(row); }
+    const output = rows.map((values) => values.map((value) => `"${value.replaceAll('"', '""')}"`).join(";")).join("\r\n");
+    return `\uFEFF${output}`;
+}
 const API_TEMPORARY_ERROR = "No se pudo completar la solicitud. Inténtalo de nuevo.";
 const LOGIN_CREDENTIALS_ERROR = "Credenciales inválidas";
 const LOGIN_TEMPORARY_ERROR = "El servicio de inicio de sesión no está disponible temporalmente. Inténtalo de nuevo.";
@@ -19,13 +60,17 @@ function destroySessionAndRedirect(req, res) {
     });
 }
 
-async function handleApiRejection(response, req, res) {
+async function handleApiRejection(response, req, res, { notFoundMessage = "No se encontró la información solicitada." } = {}) {
     if (response.status === 401) {
         return destroySessionAndRedirect(req, res);
     }
 
     if (response.status === 403) {
         return res.status(403).send("No tienes permiso para realizar esta operación.");
+    }
+
+    if (response.status === 404) {
+        return res.status(404).send(notFoundMessage);
     }
 
     if (response.status === 503 || response.status >= 500) {
@@ -96,29 +141,76 @@ export const postLogin = async (req, res) => {
 // ============================================
 
 // GET /menu - Muestra el menú principal
-export const getMenu = (req, res) => {
-    return Promise.all([
-        fetch(`${API_URL}/usuarios`, { headers: { Authorization: `Bearer ${req.session.token}` } }),
-        fetch(`${API_URL}/roles/catalogo`, { headers: { Authorization: `Bearer ${req.session.token}` } }),
-        fetch(`${API_URL}/roles/capacidades`, { headers: { Authorization: `Bearer ${req.session.token}` } }),
-        fetch(`${API_URL}/planes`, { headers: { Authorization: `Bearer ${req.session.token}` } })
-    ]).then(async ([usersResponse, rolesResponse, capabilityResponse, plansResponse]) => {
-        if ([usersResponse, rolesResponse, capabilityResponse, plansResponse].some((response) => response.status === 401)) return destroySessionAndRedirect(req, res);
-        let permissions = [];
-        if (capabilityResponse.ok) permissions = (await capabilityResponse.json()).permissions ?? [];
-        return res.render("menu", {
-            canManageUsers: usersResponse.status === 200 && permissions.includes('M01.users.read'),
-            canManageRoles: rolesResponse.status === 200 && permissions.some((permission) =>
-                ['M01.roles.read', 'M01.permissions.read', 'M01.requests.read', 'M01.assignments.read'].includes(permission)),
-            canReadPlans: plansResponse.status === 200 && permissions.includes('M03.plans.read'),
-            canReadActivities: permissions.includes('M04.activities.read'),
-            canReadReports: permissions.includes('M12.reports.read'),
-            canReadFollowup: permissions.includes('M05.followup.read')
-        });
-    }).catch(() => res.render("menu", { canManageUsers: false, canManageRoles: false, canReadPlans: false, canReadActivities: false, canReadReports: false, canReadFollowup: false }));
+export const getMenu = async (req, res) => {
+    let sessionExpired = false;
+    const query = async (path, validate = null) => {
+        try {
+            const response = await roleApi(req, path);
+            if (response.status === 401) { sessionExpired = true; return { state: "error" }; }
+            if (response.status === 403) return { state: "forbidden" };
+            if (!response.ok) return { state: "error" };
+            if (!validate) return { state: "ok" };
+            const data = await response.json();
+            return validate(data) ? { state: "ok", data } : { state: "error" };
+        } catch { return { state: "error" }; }
+    };
+    const capabilities = await query("/roles/capacidades", (data) => Array.isArray(data?.permissions) && data.permissions.every((value) => typeof value === "string"));
+    if (sessionExpired) return destroySessionAndRedirect(req, res);
+    const nav = navigationFor(capabilities.data?.permissions ?? []);
+    const skipped = { state: "forbidden" };
+    const [users, roles, plans, activities, periods] = await Promise.all([
+        nav.users ? query("/usuarios") : skipped,
+        nav.roles ? query("/roles/catalogo") : skipped,
+        nav.plans ? query("/planes", Array.isArray) : skipped,
+        nav.activities ? query("/actividades", Array.isArray) : skipped,
+        nav.followup ? query("/periodos", Array.isArray) : skipped
+    ]);
+    let followup = { state: periods.state === "ok" ? "unavailable" : periods.state };
+    if (periods.data?.[0]?.id_periodo) {
+        followup = await query(`/informes/seguimiento?periodId=${encodeURIComponent(periods.data[0].id_periodo)}`,
+            (data) => data !== null && typeof data === "object" && !Array.isArray(data));
+    }
+    if (sessionExpired) return destroySessionAndRedirect(req, res);
+    let followupPeriod = null;
+    const period = followup.data?.period;
+    const year = Number(period?.anio), quarter = Number(period?.trimestre);
+    const isPeriodNumber = (value) => typeof value === "number" || (typeof value === "string" && /^\d+$/.test(value));
+    if (followup.state === "ok" && period?.id_periodo != null &&
+        String(period.id_periodo) === String(periods.data?.[0]?.id_periodo) &&
+        isPeriodNumber(period.anio) && isPeriodNumber(period.trimestre) &&
+        Number.isInteger(year) && year >= 1000 && year <= 9999 &&
+        Number.isInteger(quarter) && quarter >= 1 && quarter <= 4) {
+        followupPeriod = { year, quarter };
+    }
+    const metrics = { plans: null, activities: null, pendingFollowups: null, approvedProgress: null, coverage: null };
+    const metricStates = {};
+    for (const [key, result] of [["plans", plans], ["activities", activities]]) {
+        metricStates[key] = result.state;
+        if (result.state === "ok") {
+            metrics[key] = result.data.length;
+            if (result.data.length === 0) metricStates[key] = "empty";
+        }
+    }
+    for (const [key, value] of [
+        ["pendingFollowups", followup.data?.activitiesPending],
+        ["approvedProgress", followup.data?.summary?.promedioAvance],
+        ["coverage", followup.data?.summary?.coberturaTrimestral]
+    ]) {
+        const available = (typeof value === "number" && Number.isFinite(value)) ||
+            (key !== "pendingFollowups" && typeof value?.explicacion === "string");
+        metricStates[key] = followup.state === "ok" && !available ? "unavailable" : followup.state;
+        if (followup.state === "ok" && available) metrics[key] = value;
+    }
+    return res.render("menu", {
+        canManageUsers: nav.users && users.state === "ok", canManageRoles: nav.roles && roles.state === "ok",
+        canReadPlans: nav.plans && plans.state !== "forbidden", canReadActivities: nav.activities && activities.state !== "forbidden",
+        canReadFollowup: nav.followup, canReadReports: nav.reports, navigation: nav, metrics, metricStates, followupPeriod,
+        dashboardError: capabilities.state !== "ok" ? "No fue posible consultar los permisos de tu cuenta. Intenta recargar la página." : null
+    });
 };
 
 export const getPlanes = async (req, res) => {
+    if (req.query?.discardDraft === '1' && req.session.recordDraft?.kind === 'plan') delete req.session.recordDraft;
     try {
         const response = await fetch(`${API_URL}/planes`, {
             headers: { Authorization: `Bearer ${req.session.token}` }
@@ -133,19 +225,30 @@ export const getPlanes = async (req, res) => {
         if (capabilityRejection) return capabilityRejection;
         if (!capabilityResponse.ok) return res.status(503).send(API_TEMPORARY_ERROR);
         const permissions = new Set((await capabilityResponse.json()).permissions ?? []);
+        let processes = [], catalogUnavailable = false, workflowAvailable = false;
+        try {
+            const catalog = await roleApi(req, "/planes/catalogo-institucional");
+            const catalogRejection = await handleApiRejection(catalog, req, res);
+            if (catalogRejection) return catalogRejection;
+            if (catalog.ok) { const data = await catalog.json(); processes = Array.isArray(data.procesos) ? data.procesos : []; workflowAvailable = data.workflowAvailable === true; }
+            else catalogUnavailable = true;
+        } catch { catalogUnavailable = true; }
         return res.render("planes", {
-            planes: Array.isArray(planes) ? planes : [],
+            planes: (Array.isArray(planes) ? planes : []).map(p => String(p.id_plan) === recoveredRecord(req, 'plan')?.id ? { ...p, ...recoveredRecord(req, 'plan') } : p),
+            recordRecovery: recoveredRecord(req, 'plan'), processes, catalogUnavailable, workflowAvailable,
             canCreatePlans: permissions.has("M03.plans.create"),
             canUpdatePlans: permissions.has("M03.plans.update"),
             canReadActivities: permissions.has("M04.activities.read"),
+            navigation: navigationFor([...permissions]),
             csrfToken: ensureRoleCsrf(req),
             notice: req.query?.success === "created" ? "Plan creado correctamente." : req.query?.success === "updated" ? "Plan actualizado correctamente." : null,
-            error: req.query?.error ? "No se pudo completar la operación. Revisa los datos y tus permisos." : null
+            error: req.session.recordDraft?.kind === 'plan' ? req.session.recordDraft.message : req.query?.error ? "No se pudo completar la operación. Revisa los datos y tus permisos." : null
         });
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
 };
 
 export const getActividades = async (req, res) => {
+    if (req.query?.discardDraft === '1' && req.session.recordDraft?.kind === 'actividad') delete req.session.recordDraft;
     try {
         const caps = await roleApi(req, "/roles/capacidades");
         const capRejection = await handleApiRejection(caps, req, res);
@@ -170,10 +273,12 @@ export const getActividades = async (req, res) => {
             if (plansResponse.ok) plans = await plansResponse.json();
         }
         return res.render("actividades", {
-            activities: await activitiesResponse.json(), plans: Array.isArray(plans) ? plans : [],
+            activities: (await activitiesResponse.json()).map(a => String(a.id_actividad) === recoveredRecord(req, 'actividad')?.id ? { ...a, ...recoveredRecord(req, 'actividad') } : a),
+            recordRecovery: recoveredRecord(req, 'actividad'), plans: Array.isArray(plans) ? plans : [],
             canCreate: permissions.has("M04.activities.create") && plans.length > 0,
             canUpdate: permissions.has("M04.activities.update"), csrfToken: ensureRoleCsrf(req),
-            filters: req.query ?? {}, error: req.query?.error ? "No se pudo completar la operación." : null,
+            navigation: navigationFor([...permissions]),
+            filters: req.query ?? {}, error: req.session.recordDraft?.kind === 'actividad' ? req.session.recordDraft.message : req.query?.error ? "No se pudo completar la operación." : null,
             notice: req.query?.success ? "La actividad se guardó correctamente." : null
         });
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
@@ -190,9 +295,8 @@ export const getDetalleActividad = async (req, res) => {
         const permissions = (await caps.json()).permissions ?? [];
         if (!permissions.includes("M04.activities.read")) return res.status(403).send("No tienes permiso para consultar actividades.");
         const response = await roleApi(req, `/actividades/${id}`);
-        const apiRejection = await handleApiRejection(response, req, res);
+        const apiRejection = await handleApiRejection(response, req, res, { notFoundMessage: "Actividad no encontrada." });
         if (apiRejection) return apiRejection;
-        if (response.status === 404) return res.status(404).send("Actividad no encontrada.");
         if (!response.ok) return res.status(503).send(API_TEMPORARY_ERROR);
         const activity = await response.json();
         let evidences = [];
@@ -202,8 +306,11 @@ export const getDetalleActividad = async (req, res) => {
             if (evidenceRejection) return evidenceRejection;
             if (evidenceResponse.ok) evidences = await evidenceResponse.json();
         }
-        return res.render("actividad-detalle", { activity, evidences, canReadEvidence: permissions.includes("M13.evidence.read"),
-            canUploadEvidence: permissions.includes("M13.evidence.upload"), csrfToken: ensureRoleCsrf(req) });
+        let evidenceIntegration=null,quarterlyContext=null,integrationError=null;
+        if(permissions.includes('M13.evidence.upload')){try{const options=await roleApi(req,'/evidencias/opciones');if(options.ok){const value=await options.json();if(value.ready)evidenceIntegration=value;}else integrationError=API_TEMPORARY_ERROR;}catch{integrationError=API_TEMPORARY_ERROR;}}
+        if(permissions.includes('M05.followup.read')){try{const context=await roleApi(req,'/seguimiento/integrado?activityId='+id);const value=await context.json();if(context.ok&&value.ready)quarterlyContext=value;else if(value.code!=='INTEGRATION_NOT_ACTIVATED')integrationError=API_TEMPORARY_ERROR;}catch{integrationError=API_TEMPORARY_ERROR;}}
+        return res.render("actividad-detalle", { activity, evidences,evidenceIntegration,quarterlyContext,evidenceError:req.session.evidenceFlash||integrationError, canReadEvidence: permissions.includes("M13.evidence.read"),
+            canUploadEvidence: permissions.includes("M13.evidence.upload"), csrfToken: ensureRoleCsrf(req), navigation: navigationFor(permissions) });
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
 };
 
@@ -211,11 +318,13 @@ export const postCrearActividad = async (req, res) => {
     if (!validRoleCsrf(req)) return res.status(403).send("La solicitud del formulario expiró. Recarga la página.");
     const { id_plan, descripcion, responsable, fecha_inicio, fecha_fin, estado } = req.body ?? {};
     try {
-        const response = await roleApi(req, "/actividades", { method: "POST", body: { id_plan, descripcion, responsable, fecha_inicio, fecha_fin, estado } });
+        const response = await roleApi(req, "/actividades", { method: "POST", body: { ...institutionalBody(req.body, 'actividad'), id_plan, descripcion, responsable, fecha_inicio, fecha_fin, estado } });
+        if (!response.ok) retainDraft(req, 'actividad', req.body, response.status);
+        else if (req.session.recordDraft?.kind === 'actividad') delete req.session.recordDraft;
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         return res.redirect(response.ok ? "/actividades?success=created" : "/actividades?error=operation_failed");
-    } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
+    } catch { retainDraft(req, 'actividad', req.body); return res.redirect('/actividades?error=connection'); }
 };
 
 export const postActualizarActividad = async (req, res) => {
@@ -223,14 +332,17 @@ export const postActualizarActividad = async (req, res) => {
     const { id, descripcion, responsable, fecha_inicio, fecha_fin, estado } = req.body ?? {};
     if (!roleId(String(id ?? ""))) return res.redirect("/actividades?error=operation_failed");
     try {
-        const response = await roleApi(req, `/actividades/${id}`, { method: "PUT", body: { descripcion, responsable, fecha_inicio, fecha_fin, estado } });
+        const response = await roleApi(req, `/actividades/${id}`, { method: "PUT", body: { ...institutionalBody(req.body, 'actividad'), descripcion, responsable, fecha_inicio, fecha_fin, estado } });
+        if (!response.ok) retainDraft(req, 'actividad', req.body, response.status);
+        else if (req.session.recordDraft?.kind === 'actividad') delete req.session.recordDraft;
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         return res.redirect(response.ok ? "/actividades?success=updated" : "/actividades?error=operation_failed");
-    } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
+    } catch { retainDraft(req, 'actividad', req.body); return res.redirect('/actividades?error=connection'); }
 };
 
 export const getSeguimiento = async (req, res) => {
+    if(req.query?.discardReopen==='1'){delete req.session.reopenDraft;delete req.session.reopenClientId;}
     try {
         const caps = await roleApi(req, "/roles/capacidades");
         const rejection = await handleApiRejection(caps, req, res);
@@ -238,6 +350,20 @@ export const getSeguimiento = async (req, res) => {
         if (!caps.ok) return res.status(503).send(API_TEMPORARY_ERROR);
         const permissions = new Set((await caps.json()).permissions ?? []);
         if (!permissions.has("M05.followup.read")) return res.status(403).send("No tienes permiso para consultar seguimientos.");
+        const integrationQuery=new URLSearchParams();
+        for(const key of ['periodId','planId','activityId','anio','trimestre','estado','after','before'])if(typeof req.query?.[key]==='string'&&req.query[key])integrationQuery.set(key,req.query[key]);
+        const integrated=await roleApi(req,'/seguimiento/integrado'+(integrationQuery.size?'?'+integrationQuery:''));
+        if(integrated.status===401||integrated.status===403){const denied=await handleApiRejection(integrated,req,res);if(denied)return denied;}
+        let integratedData=null;try{integratedData=await integrated.json();}catch{}
+        if(integrated.ok&&integratedData?.ready){
+            req.session.reopenClientId??=randomUUID();
+            return res.render('seguimiento-integrado',{data:integratedData,filters:req.query||{},csrfToken:ensureRoleCsrf(req),navigation:navigationFor([...permissions]),canCreate:permissions.has('M05.followup.create'),canRequestReopen:permissions.has('M05.followup.update'),canUploadEvidence:permissions.has('M13.evidence.upload'),clientId:req.session.reopenClientId,recovery:String(req.session.followupDraft?.id_periodo)===String(integratedData.period?.id_periodo)?req.session.followupDraft:null,reopenRecovery:String(req.session.reopenDraft?.id_periodo)===String(integratedData.period?.id_periodo)?req.session.reopenDraft:null,error:req.query?.error?'No se pudo completar la operación. Conservamos los datos introducidos.':null,notice:req.query?.success?'Solicitud registrada; no equivale a una aprobación institucional.':null});
+        }
+        if(!integrated.ok&&integratedData?.code!=='INTEGRATION_NOT_ACTIVATED'){
+            if(integrated.status===400)return res.status(400).send('Revisa los filtros de la consulta trimestral.');
+            if(integrated.status===404)return res.status(404).send('No se encontró la información trimestral solicitada.');
+            return res.status(503).send('No se pudo consultar la integración trimestral.');
+        }
         const periodsResponse = await roleApi(req, "/periodos");
         const periodsRejection = await handleApiRejection(periodsResponse, req, res);
         if (periodsRejection) return periodsRejection;
@@ -261,8 +387,8 @@ export const getSeguimiento = async (req, res) => {
             summary = await summaryResponse.json();
         }
         return res.render("seguimiento", { periods, selectedId, activities, history, summary,
-            canCreate: permissions.has("M05.followup.create"), canApprove: permissions.has("M05.followup.approve"),
-            canManagePeriods: permissions.has("M05.followup.update"), csrfToken: ensureRoleCsrf(req),
+            canCreate: permissions.has("M05.followup.create"), canApprove: false,
+            canManagePeriods: false, csrfToken: ensureRoleCsrf(req), navigation: navigationFor([...permissions]),
             error: req.query?.error ? "No se pudo completar la operación. Verifica el período y los datos." : null,
             notice: req.query?.success ? "La operación se completó correctamente." : null });
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
@@ -297,10 +423,11 @@ export const postCrearSeguimiento = async (req, res) => {
     if (!roleId(String(id_actividad ?? "")) || !roleId(String(id_periodo ?? ""))) return res.redirect("/seguimiento?error=followup");
     try {
         const response = await roleApi(req, `/actividades/${id_actividad}/seguimientos`, { method: "POST", body: { id_periodo, porcentaje, observaciones: observaciones || null } });
+        if(!response.ok)req.session.followupDraft={id_actividad,id_periodo,porcentaje,observaciones};else delete req.session.followupDraft;
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         return res.redirect(`/seguimiento?periodId=${encodeURIComponent(id_periodo)}&${response.ok ? "success=submitted" : "error=followup"}`);
-    } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
+    } catch { req.session.followupDraft={id_actividad,id_periodo,porcentaje,observaciones};return res.redirect('/seguimiento?error=followup&periodId='+encodeURIComponent(id_periodo)); }
 };
 
 export const postDecisionSeguimiento = async (req, res) => {
@@ -309,6 +436,12 @@ export const postDecisionSeguimiento = async (req, res) => {
     if (!roleId(String(id_seguimiento ?? "")) || !roleId(String(id_periodo ?? ""))) return res.redirect("/seguimiento?error=decision");
     try {
         const response = await roleApi(req, `/seguimientos/${id_seguimiento}/decision`, { method: "POST", body: { resultado, motivo } });
+        if (response.status === 403) {
+            const payload = await response.json().catch(() => null);
+            if (payload?.error === "Quien registró el seguimiento no puede aprobarlo ni rechazarlo.") {
+                return res.status(403).send("No puedes aprobar ni rechazar un seguimiento que enviaste. Otra persona autorizada debe revisarlo.");
+            }
+        }
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         return res.redirect(`/seguimiento?periodId=${encodeURIComponent(id_periodo)}&${response.ok ? "success=decision" : "error=decision"}`);
@@ -333,9 +466,8 @@ export const getDescargarEvidencia = async (req, res) => {
     if (!roleId(String(id ?? ""))) return res.status(400).send("Identificador de evidencia inválido.");
     try {
         const response = await roleApi(req, `/evidencias/${id}/descarga`);
-        const rejection = await handleApiRejection(response, req, res);
+        const rejection = await handleApiRejection(response, req, res, { notFoundMessage: "Evidencia no encontrada." });
         if (rejection) return rejection;
-        if (response.status === 404) return res.status(404).send("Evidencia no encontrada.");
         if (!response.ok) return res.status(503).send(API_TEMPORARY_ERROR);
         res.status(200);
         res.setHeader("Content-Type", response.headers.get("content-type") || "application/octet-stream");
@@ -385,7 +517,7 @@ export const getInformes = async (req, res) => {
                 followupSummary = await summaryResponse.json();
             }
         }
-        return res.render("informes", { records: await response.json(), plans: Array.isArray(plans) ? plans : [], filters: req.query ?? {}, filterQuery: query.toString(), canExport: permissions.has("M12.reports.export"), canReadFollowup, followupPeriods, followupSummary, selectedFollowupPeriodId });
+        return res.render("informes", { records: await response.json(), plans: Array.isArray(plans) ? plans : [], filters: req.query ?? {}, filterQuery: query.toString(), canExport: permissions.has("M12.reports.export"), canReadFollowup, followupPeriods, followupSummary, selectedFollowupPeriodId, navigation: navigationFor([...permissions]) });
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
 };
 
@@ -404,7 +536,7 @@ export const getInformeCsv = async (req, res) => {
         const apiRejection = await handleApiRejection(response, req, res);
         if (apiRejection) return apiRejection;
         if (!response.ok) return res.status(503).send(API_TEMPORARY_ERROR);
-        const csv = await response.text();
+        const csv = convertCsvToExcelSemicolon(await response.text());
         return res.type("text/csv; charset=utf-8").attachment("calificaciones.csv").send(csv);
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
 };
@@ -413,12 +545,14 @@ export const postCrearPlan = async (req, res) => {
     if (!validRoleCsrf(req)) return res.status(403).send("La solicitud del formulario expiró. Recarga la página.");
     const { nombre, descripcion } = req.body ?? {};
     try {
-        const response = await roleApi(req, "/planes", { method: "POST", body: { nombre, descripcion: descripcion || null } });
+        const response = await roleApi(req, "/planes", { method: "POST", body: { ...institutionalBody(req.body, 'plan'), nombre, descripcion: descripcion || null } });
+        if (!response.ok) retainDraft(req, 'plan', req.body, response.status);
+        else if (req.session.recordDraft?.kind === 'plan') delete req.session.recordDraft;
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         if (!response.ok) return res.redirect("/planes?error=operation_failed");
         return res.redirect("/planes?success=created");
-    } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
+    } catch { retainDraft(req, 'plan', req.body); return res.redirect('/planes?error=connection'); }
 };
 
 export const postActualizarPlan = async (req, res) => {
@@ -426,12 +560,14 @@ export const postActualizarPlan = async (req, res) => {
     const { id, nombre, descripcion } = req.body ?? {};
     if (!roleId(String(id ?? ""))) return res.redirect("/planes?error=operation_failed");
     try {
-        const response = await roleApi(req, `/planes/${id}`, { method: "PUT", body: { nombre, descripcion: descripcion || null } });
+        const response = await roleApi(req, `/planes/${id}`, { method: "PUT", body: { ...institutionalBody(req.body, 'plan'), nombre, descripcion: descripcion || null } });
+        if (!response.ok) retainDraft(req, 'plan', req.body, response.status);
+        else if (req.session.recordDraft?.kind === 'plan') delete req.session.recordDraft;
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         if (!response.ok) return res.redirect("/planes?error=operation_failed");
         return res.redirect("/planes?success=updated");
-    } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
+    } catch { retainDraft(req, 'plan', req.body); return res.redirect('/planes?error=connection'); }
 };
 
 // GET /logout - Cierra la sesión
@@ -483,7 +619,7 @@ export const getUsuarios = async (req, res) => {
         }
         return res.render("listar", { usuarios, csrfToken: ensureRoleCsrf(req),
             canCreateUsers: permissions.includes('M01.users.create'), canUpdateUsers: permissions.includes('M01.users.update'),
-            canDeactivateUsers: permissions.includes('M01.users.deactivate'), canReadRoles, canReadPlans });
+            canDeactivateUsers: permissions.includes('M01.users.deactivate'), canReadRoles, canReadPlans, navigation: navigationFor(permissions) });
 
     } catch {
         return res.status(503).send(API_TEMPORARY_ERROR);
@@ -500,10 +636,32 @@ export const getNuevoUsuario = async (req, res) => {
         const rejection = await handleApiRejection(capabilityResponse, req, res);
         if (rejection) return rejection;
         if (!capabilityResponse.ok) return res.status(503).send(API_TEMPORARY_ERROR);
-        if (!(await capabilityResponse.json()).permissions?.includes('M01.users.create')) return res.status(403).send("No tienes permiso para crear usuarios.");
-        return res.render("crear", { error: null, csrfToken: ensureRoleCsrf(req) });
+        const permissions = (await capabilityResponse.json()).permissions ?? [];
+        if (!permissions.includes('M01.users.create')) return res.status(403).send("No tienes permiso para crear usuarios.");
+        return res.render("crear", { error: null, csrfToken: ensureRoleCsrf(req), navigation: navigationFor(permissions) });
     } catch { return res.status(503).send(API_TEMPORARY_ERROR); }
 };
+
+function userFormValues(body = {}) {
+    return Object.fromEntries(["nombre", "email", "reason"].map((key) => [key, typeof body[key] === "string" ? body[key] : ""]));
+}
+
+async function renderUserFormError(req, res, view, error, statusCode) {
+    let navigation = navigationFor();
+    try {
+        const response = await roleApi(req, "/roles/capacidades");
+        if (response.status === 401) return destroySessionAndRedirect(req, res);
+        if (response.ok) {
+            const permissions = (await response.json())?.permissions;
+            if (Array.isArray(permissions) && permissions.every((value) => typeof value === "string")) navigation = navigationFor(permissions);
+        }
+    } catch { /* Sin capacidades verificadas, no se muestran accesos adicionales. */ }
+    const formValues = userFormValues(req.body);
+    return res.status(statusCode).render(view, {
+        error, navigation, formValues, csrfToken: ensureRoleCsrf(req),
+        ...(view === "editar" ? { usuario: { id: req.body?.id, nombre: formValues.nombre, email: formValues.email } } : {})
+    });
+}
 
 // POST /usuarios/crear - Procesa la creación
 export const postCrearUsuario = async (req, res) => {
@@ -515,13 +673,14 @@ export const postCrearUsuario = async (req, res) => {
             headers: { "Content-Type": "application/json", "Authorization": `Bearer ${req.session.token}` },
             body: JSON.stringify({ nombre, email, password, reason })
         });
-        const rejection = await handleApiRejection(response, req, res);
+        const rejection = [401, 403].includes(response.status) ? await handleApiRejection(response, req, res) : null;
         if (rejection) return rejection;
-        if (!response.ok) return res.status(response.status === 403 ? 403 : response.status >= 500 ? 503 : 400)
-            .render("crear", { error: "No se pudo crear el usuario. Verifica los datos y tus permisos.", csrfToken: ensureRoleCsrf(req) });
+        if (!response.ok) return renderUserFormError(req, res, "crear",
+            response.status >= 500 ? API_TEMPORARY_ERROR : "No se pudo crear el usuario. Verifica los datos y tus permisos.",
+            response.status >= 500 ? 503 : 400);
         return res.redirect("/usuarios");
     } catch {
-        return res.status(503).render("crear", { error: API_TEMPORARY_ERROR, csrfToken: ensureRoleCsrf(req) });
+        return renderUserFormError(req, res, "crear", API_TEMPORARY_ERROR, 503);
     }
 };
 // ============================================
@@ -551,8 +710,9 @@ export const getEditarUsuario = async (req, res) => {
         const capabilityRejection = await handleApiRejection(capabilityResponse, req, res);
         if (capabilityRejection) return capabilityRejection;
         if (!capabilityResponse.ok) return res.status(503).send(API_TEMPORARY_ERROR);
-        if (!(await capabilityResponse.json()).permissions?.includes('M01.users.update')) return res.status(403).send("No tienes permiso para editar usuarios.");
-        return res.render("editar", { usuario, error: null, csrfToken: ensureRoleCsrf(req) });
+        const permissions = (await capabilityResponse.json()).permissions ?? [];
+        if (!permissions.includes('M01.users.update')) return res.status(403).send("No tienes permiso para editar usuarios.");
+        return res.render("editar", { usuario, error: null, csrfToken: ensureRoleCsrf(req), navigation: navigationFor(permissions) });
 
     } catch {
         return res.status(503).send(API_TEMPORARY_ERROR);
@@ -574,21 +734,20 @@ export const postEditarUsuario = async (req, res) => {
             body: JSON.stringify({ nombre, email, reason })
         });
 
-        const rejection = await handleApiRejection(response, req, res);
+        const rejection = [401, 403].includes(response.status) ? await handleApiRejection(response, req, res) : null;
         if (rejection) return rejection;
 
         if (!response.ok) {
-            const usuario = { id, nombre, email };
             const error = [400, 422].includes(response.status)
                 ? "Revisa los datos ingresados e inténtalo de nuevo."
                 : "No se pudo actualizar el usuario. Inténtalo de nuevo.";
-            return res.render("editar", { usuario, error, csrfToken: ensureRoleCsrf(req) });
+            return renderUserFormError(req, res, "editar", error, response.status >= 500 ? 503 : 400);
         }
 
         res.redirect("/usuarios");
 
     } catch {
-        return res.status(503).send(API_TEMPORARY_ERROR);
+        return renderUserFormError(req, res, "editar", API_TEMPORARY_ERROR, 503);
     }
 };
 // ============================================
@@ -667,10 +826,10 @@ async function roleApi(req, path, { method = "GET", body } = {}) {
     return fetch(`${API_URL}${path}`, options);
 }
 
-async function rolePost(req, res, path, body) {
+async function rolePost(req, res, path, body, method = "POST") {
     if (!validRoleCsrf(req)) return res.status(403).send("La solicitud del formulario expiró. Recarga la página.");
     try {
-        const response = await roleApi(req, path, { method: "POST", body });
+        const response = await roleApi(req, path, { method, body });
         const rejection = await handleApiRejection(response, req, res);
         if (rejection) return rejection;
         if (!response.ok) return res.redirect("/roles?error=operation_failed");
@@ -722,6 +881,7 @@ export const getRoleAdministration = async (req, res) => {
         const csrfToken = ensureRoleCsrf(req);
         const data = { roles: catalog.roles ?? [], permissions: permissionCatalog.permissions ?? [],
             requests: requests.requests ?? [], assignments, selectedUserId: userId ?? "", csrfToken,
+            navigation: navigationFor([...permissions]),
             capabilities: Object.freeze(Object.fromEntries([...permissions].map((code) => [code, true]))),
             error: req.query?.error === "operation_failed" ? "No se pudo completar el cambio. Verifica los datos y los permisos." : null };
         res.locals.roleAdminData = data;
@@ -745,7 +905,7 @@ export const postRoleConfiguration = (req, res) => {
     return rolePost(req, res, `/roles/catalogo/${body.roleId}/configuracion`, {
         classification: body.classification, requiresScope: formBoolean(body.requiresScope),
         allowOpenEndedAssignment: formBoolean(body.allowOpenEndedAssignment), reason: body.reason
-    });
+    }, "PUT");
 };
 
 export const postRolePermissions = (req, res) => {
@@ -753,14 +913,14 @@ export const postRolePermissions = (req, res) => {
     if (!roleId(body.roleId)) return res.status(400).send("Identificador de rol inválido.");
     const raw = body.permissionCodes;
     const permissionCodes = raw == null ? [] : Array.isArray(raw) ? raw : [raw];
-    return rolePost(req, res, `/roles/catalogo/${body.roleId}/permisos`, { permissionCodes, reason: body.reason });
+    return rolePost(req, res, `/roles/catalogo/${body.roleId}/permisos`, { permissionCodes, reason: body.reason }, "PUT");
 };
 
 export const postPermissionState = (req, res) => {
     const body = req.body ?? {};
     return rolePost(req, res, `/roles/permisos/${encodeURIComponent(body.code ?? "")}/estado`, {
         active: formBoolean(body.active), reason: body.reason
-    });
+    }, "PUT");
 };
 
 export const postRoleAssignment = (req, res) => {
@@ -793,3 +953,40 @@ export const postRoleDecision = (req, res) => {
         decision: body.decision, reason: body.reason
     });
 };
+
+const planWorkflowViews=createPlanWorkflowViews({api:roleApi,validCsrf:validRoleCsrf,csrf:ensureRoleCsrf,navigation:navigationFor,reject:handleApiRejection});
+const institutionalReports=createInstitutionalReportViews({api:roleApi,validCsrf:validRoleCsrf,csrf:ensureRoleCsrf,navigation:navigationFor,reject:handleApiRejection});
+export const getInstitutionalReport=institutionalReports.report;
+export const postInstitutionalExport=institutionalReports.exportReport;
+export const getInternalControl=institutionalReports.control;
+export const getInternalControlContext=institutionalReports.controlContext;
+export const postInternalControl=institutionalReports.act;
+export const getPlaneacion=planWorkflowViews.list;
+export const getPlanGestion=planWorkflowViews.detail;
+export const postPlanFicha=planWorkflowViews.saveProfile;
+export const postPlanActuacion=planWorkflowViews.act;
+
+export async function postBinaryEvidence(req,res){
+    if(!validRoleCsrf({session:req.session,body:{csrfToken:req.headers['x-csrf-token']}}))return res.status(403).json({error:'La solicitud expiró. Recarga la página.'});
+    const id=String(req.params?.id||'');if(!roleId(id)||!Buffer.isBuffer(req.body))return res.status(400).json({error:'Archivo o actividad inválidos.'});
+    const headers={'Content-Type':'application/octet-stream',Authorization:`Bearer ${req.session.token}`};
+    for(const key of ['x-evidence-name','x-evidence-type','x-evidence-notes','x-followup-id'])if(typeof req.headers[key]==='string')headers[key]=req.headers[key];
+    try{const response=await fetch(`${API_URL}/actividades/${id}/evidencias`,{method:'POST',headers,body:req.body});
+      if(!response.ok)return res.status([400,401,403,404,409,413].includes(response.status)?response.status:503).json({error:response.status===409?'No se puede asociar evidencia a un seguimiento decidido o período cerrado.':response.status===413?'El archivo supera 10 MB.':'No se pudo cargar. Verifica PDF, PNG, JPEG o TXT, contenido, tamaño y permisos.'});
+      return res.status(201).json({success:true});
+    }catch{return res.status(503).json({error:'No se pudo completar la carga. El formulario conserva tu selección.'});}
+}
+export async function postLinkEvidence(req,res){
+    if(!validRoleCsrf(req))return res.status(403).send('La solicitud expiró.');
+    const id=String(req.params?.id||''),activity=String(req.body?.id_actividad||'');if(!roleId(id)||!roleId(activity))return res.status(400).send('Referencia inválida.');
+    try{const result=await roleApi(req,`/evidencias/${id}/vinculo`,{method:'POST',body:{id_actividad:activity,id_seguimiento:req.body?.id_seguimiento}});req.session.evidenceFlash=result.ok?null:'No se pudo asociar la evidencia. Comprueba actividad, seguimiento pendiente y período abierto.';}catch{req.session.evidenceFlash='No se pudo conectar. La evidencia existente permanece conservada.';}
+    return res.redirect('/actividades/'+activity);
+}
+export async function postReopenRequest(req,res){
+    if(!validRoleCsrf(req))return res.status(403).send('La solicitud expiró.');
+    const id=String(req.params?.id||'');if(!roleId(id))return res.status(400).send('Per?odo inválido.');
+    const input={motivo:typeof req.body?.motivo==='string'?req.body.motivo:'',client_id:typeof req.body?.client_id==='string'?req.body.client_id:''};
+    let ok=false;try{const response=await roleApi(req,`/periodos/${id}/solicitudes-reapertura`,{method:'POST',body:input});ok=response.ok;}catch{}
+    if(ok){delete req.session.reopenDraft;delete req.session.reopenClientId;}else req.session.reopenDraft={...input,id_periodo:id};
+    return res.redirect('/seguimiento?periodId='+id+(ok?'&success=reopen_requested':'&error=reopen_request'));
+}

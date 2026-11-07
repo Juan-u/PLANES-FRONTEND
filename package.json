@@ -5,14 +5,22 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node index.js"
+    "dev": "node index.js",
+    "start": "node index.js",
+    "start:local": "node --env-file=.env.local index.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "overrides": {
+    "express-mysql-session": {
+      "mysql2": "3.24.6"
+    }
+  },
   "dependencies": {
     "ejs": "^6.0.1",
     "express": "^5.2.1",
+    "express-mysql-session": "^3.0.3",
     "express-session": "^1.19.0",
     "node-fetch": "^3.3.2"
   }

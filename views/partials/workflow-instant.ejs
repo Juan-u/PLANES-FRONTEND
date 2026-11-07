@@ -1,0 +1,2 @@
+<% const raw=typeof value==='string'?value:''; const instant=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$/.test(raw)?new Date(raw):null; %>
+<% if(instant&&Number.isFinite(instant.valueOf())){ %><time datetime="<%= raw %>"><%= new Intl.DateTimeFormat('es-CO',{timeZone:'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(instant) %></time><span class="sr-only">, hora de Colombia</span><% }else{ %><%= raw||'Sin actuación' %><% } %>

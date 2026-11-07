@@ -4,6 +4,7 @@
 *.key
 *.p12
 *.pfx
+*.dpapi
 credentials.json
 **/credentials.json
 *.dump
@@ -17,4 +18,8 @@ credentials.json
 *.tmp
 *.temp
 node_modules
+**/node_modules
+**/*.tmp
+**/*.temp
+test/
 .git

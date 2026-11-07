@@ -6,21 +6,10 @@
     <title>Nuevo usuario | Planes de Acción</title>
     <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-    <header class="app-header">
-        <div class="header-inner">
-            <a class="brand" href="/menu">
-                <span class="brand-mark" aria-hidden="true">PA</span>
-                <span>Planes de Acción</span>
-            </a>
-            <nav class="navbar-links" aria-label="Navegación principal">
-                <a href="/usuarios">← Volver a usuarios</a>
-                <a href="/logout">Cerrar sesión</a>
-            </nav>
-        </div>
-    </header>
+<body class="app-body" data-time-zone="<%= (typeof timeZone !== 'undefined' ? timeZone : 'America/Bogota') %>">
+    <%- include('partials/navigation', { active: 'crear', pageTitle: 'Crear usuario', navigation: typeof navigation === 'undefined' ? {} : navigation }) %>
 
-    <main class="container container--narrow">
+    <main id="contenido" tabindex="-1" class="container container--narrow">
         <section class="card" aria-labelledby="create-user-title">
             <div class="page-heading">
                 <h1 id="create-user-title">Crear usuario</h1>
@@ -30,29 +19,30 @@
                 <div class="alert error" role="alert"><%= error %></div>
             <% } %>
 
-            <form action="/usuarios/crear" method="POST">
+            <% const values = typeof formValues === 'undefined' ? {} : formValues; %>
+            <form action="/usuarios/crear" method="POST" class="form-grid user-form" data-loading-form>
                 <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
                 <div class="form-group">
                     <label for="nombre">Nombre</label>
-                    <input class="form-control" type="text" id="nombre" name="nombre" required>
+                    <input class="form-control" type="text" id="nombre" name="nombre" value="<%= values.nombre ?? '' %>" required>
                 </div>
 
                 <div class="form-group">
                     <label for="email">Correo electrónico</label>
-                    <input class="form-control" type="email" id="email" name="email" required>
+                    <input class="form-control" type="email" id="email" name="email" value="<%= values.email ?? '' %>" required>
                 </div>
 
                 <div class="form-group">
                     <label for="password">Contraseña temporal</label>
-                    <input class="form-control" type="password" id="password" name="password" minlength="14" maxlength="1024" autocomplete="new-password" required>
+                    <span class="password-field"><input class="form-control" type="password" id="password" name="password" minlength="14" maxlength="1024" autocomplete="new-password" required><button class="password-toggle" type="button" data-password-toggle aria-controls="password" aria-label="Mostrar contraseña" aria-pressed="false" title="Mostrar contraseña"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12s3.4-6 9.5-6 9.5 6 9.5 6-3.4 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></svg></button></span>
                 </div>
 
                 <div class="form-group">
                     <label for="reason">Motivo de creación</label>
-                    <textarea class="form-control" id="reason" name="reason" maxlength="4000" required></textarea>
+                    <textarea class="form-control" id="reason" name="reason" maxlength="4000" required><%= values.reason ?? '' %></textarea>
                 </div>
 
-                <div class="form-actions">
+                <div class="form-actions form-grid__full">
                     <button type="submit" class="btn btn-primary">Guardar</button>
                     <a href="/usuarios" class="btn btn-secondary">Cancelar</a>
                 </div>

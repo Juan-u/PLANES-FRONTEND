@@ -1,44 +1,61 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Menú principal | Planes de Acción</title>
-    <link rel="stylesheet" href="/style.css">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel principal | Planes de Acción</title><link rel="stylesheet" href="/style.css">
 </head>
-<body>
-    <header class="app-header">
-        <div class="header-inner">
-            <a class="brand" href="/menu">
-                <span class="brand-mark" aria-hidden="true">PA</span>
-                <span>Planes de Acción</span>
-            </a>
-            <nav class="navbar-links" aria-label="Navegación principal">
-                <% if (canReadPlans) { %><a href="/planes">Planes</a><% } %>
-                <% if (canReadActivities) { %><a href="/actividades">Actividades</a><% } %>
-                <% if (canReadReports) { %><a href="/informes">Informes</a><% } %>
-                <% if (canReadFollowup) { %><a href="/seguimiento">Seguimiento</a><% } %>
-                <% if (canManageUsers) { %><a href="/usuarios">Usuarios</a><% } %>
-                <% if (canManageRoles) { %><a href="/roles">Roles y permisos</a><% } %>
-                <a href="/logout">Cerrar sesión</a>
-            </nav>
+<body class="app-body" data-time-zone="<%= (typeof timeZone !== 'undefined' ? timeZone : 'America/Bogota') %>">
+  <% const dataMetrics = typeof metrics === 'undefined' ? {} : metrics;
+     const states = typeof metricStates === 'undefined' ? {} : metricStates;
+     const menuError = typeof dashboardError === 'undefined' ? null : dashboardError;
+     const metricMessage = (key) => states[key] === 'error' ? 'No fue posible consultar esta informaci\u00f3n' : states[key] === 'forbidden' ? 'Informaci\u00f3n no disponible para tu cuenta' : 'Informaci\u00f3n no disponible'; %>
+  <%- include('partials/navigation', { active: 'menu', pageTitle: 'Panel principal', navigation: typeof navigation === 'undefined' ? {} : navigation }) %>
+  <main class="container dashboard" id="contenido">
+    <section class="dashboard-intro">
+      <div><p class="eyebrow">Resumen de gestión</p><h1>Panel principal</h1><p>Consulta los módulos disponibles para tu cuenta y el estado actual de la gestión.</p></div>
+      <span class="dashboard-mark" aria-hidden="true">PA</span>
+    </section>
+    <% if (menuError) { %><p class="alert alert-warning" role="alert"><%= menuError %></p><% } %>
+    <% const period = typeof followupPeriod === 'undefined' ? null : followupPeriod;
+       const quarterNames = ['Primer', 'Segundo', 'Tercer', 'Cuarto'];
+       const periodLabel = period && Number.isInteger(period.year) && period.year >= 1000 && period.year <= 9999 && Number.isInteger(period.quarter) && period.quarter >= 1 && period.quarter <= 4
+         ? `${quarterNames[period.quarter - 1]} trimestre de ${period.year}` : 'Per\u00edodo no disponible';
+       const cards = [
+         { key: 'plans', title: 'Planes registrados', allowed: canReadPlans, href: '/planes', action: 'Consultar planes' },
+         { key: 'activities', title: 'Actividades existentes', allowed: canReadActivities, href: '/actividades', action: 'Consultar actividades' },
+         { key: 'pendingFollowups', title: 'Seguimientos pendientes de revisi\u00f3n', allowed: canReadFollowup, href: '/seguimiento', action: 'Revisar seguimientos', periodic: true },
+         { key: 'approvedProgress', title: 'Avance promedio aprobado', allowed: canReadFollowup, percentage: true, periodic: true },
+         { key: 'coverage', title: 'Cobertura del seguimiento', allowed: canReadFollowup, percentage: true, periodic: true }
+       ]; %>
+    <section class="metric-grid" aria-label="Indicadores disponibles">
+      <% cards.filter((card) => card.allowed).forEach((card) => {
+           const value = dataMetrics[card.key];
+           const numeric = typeof value === 'number' && Number.isFinite(value); %>
+        <article class="metric-card" aria-labelledby="metric-<%= card.key %>" data-metric="<%= card.key %>">
+          <h2 class="metric-label" id="metric-<%= card.key %>"><%= card.title %></h2>
+          <% if (numeric) { %><strong class="metric-value"><%= value %><%= card.percentage ? '%' : '' %></strong>
+          <% } else { %><p class="metric-message <%= states[card.key] === 'error' ? 'metric-message--error' : '' %>"><%= value?.explicacion ?? metricMessage(card.key) %></p><% } %>
+          <% if (states[card.key] === 'empty') { %><p class="metric-note">No hay registros disponibles</p><% } %>
+          <% if (card.periodic) { %><p class="metric-period"><%= periodLabel %></p><% } %>
+          <% if (card.href) { %><a href="<%= card.href %>"><%= card.action %> <span aria-hidden="true">&#8594;</span></a><% } %>
+        </article>
+      <% }); %>
+      <% if (!menuError && !canReadPlans && !canReadActivities && !canReadFollowup) { %><p class="empty-state">No hay indicadores disponibles para tu cuenta.</p><% } %>
+    </section>
+    <div class="dashboard-lower-grid">
+      <section class="card quick-access" aria-labelledby="quick-access-title"><div class="page-heading"><div><h2 id="quick-access-title">¿Qué necesitas hacer?</h2></div></div>
+        <div class="quick-access-grid">
+          <% if (canReadPlans) { %><a class="quick-link" href="/planes"><span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM9 12h7M9 16h7"/></svg></span><span><strong>Planes de acción</strong><small>Consultar y gestionar planes</small></span><span aria-hidden="true">→</span></a><% } %>
+          <% if (canReadActivities) { %><a class="quick-link" href="/actividades"><span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5"/></svg></span><span><strong>Actividades</strong><small>Filtrar y consultar actividades</small></span><span aria-hidden="true">→</span></a><% } %>
+          <% if (canReadFollowup) { %><a class="quick-link" href="/seguimiento"><span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17M7 15l4-4 3 2 6-7"/></svg></span><span><strong>Seguimiento</strong><small>Consultar avances y decisiones</small></span><span aria-hidden="true">→</span></a><% } %>
+          <% if (canReadReports) { %><a class="quick-link" href="/informes"><span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h17M8 16v-4M13 16V7M18 16v-7"/></svg></span><span><strong>Informes</strong><small>Consultar reportes disponibles</small></span><span aria-hidden="true">→</span></a><% } %>
+          <% if (canManageUsers) { %><a class="quick-link" href="/usuarios"><span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 20v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2M13 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0M18 8v6M15 11h6"/></svg></span><span><strong>Usuarios</strong><small>Administrar cuentas autorizadas</small></span><span aria-hidden="true">→</span></a><% } %>
+          <% if (canManageRoles) { %><a class="quick-link" href="/roles"><span class="quick-icon" aria-hidden="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-4 8-8 10-4-2-8-5-8-10V6zM9 12l2 2 4-4"/></svg></span><span><strong>Roles y permisos</strong><small>Consultar administración de acceso</small></span><span aria-hidden="true">→</span></a><% } %>
+          <% if (!menuError && !canReadPlans && !canReadActivities && !canReadFollowup && !canReadReports && !canManageUsers && !canManageRoles) { %><p class="empty-state">No hay módulos habilitados para esta cuenta. Si esperabas ver accesos, consulta con la persona administradora.</p><% } %>
         </div>
-    </header>
+      </section>
 
-    <main class="container">
-        <section class="card welcome-card" aria-labelledby="welcome-title">
-            <h1 id="welcome-title">¡Bienvenido!</h1>
-            <p>Has iniciado sesión correctamente.</p>
-            <div class="welcome-actions">
-                <% if (canManageUsers) { %><a href="/usuarios" class="btn btn-primary">Ver usuarios</a><% } %>
-                <% if (canReadPlans) { %><a href="/planes" class="btn btn-primary">Ver planes</a><% } %>
-                <% if (canReadActivities) { %><a href="/actividades" class="btn btn-primary">Ver actividades</a><% } %>
-                <% if (canReadReports) { %><a href="/informes" class="btn btn-primary">Ver informes</a><% } %>
-                <% if (canReadFollowup) { %><a href="/seguimiento" class="btn btn-primary">Ver seguimiento</a><% } %>
-                <% if (canManageRoles) { %><a href="/roles" class="btn btn-primary">Administrar roles</a><% } %>
-                <a href="/logout" class="btn btn-secondary">Cerrar sesión</a>
-            </div>
-        </section>
-    </main>
+    </div>
+  </main>
 </body>
 </html>

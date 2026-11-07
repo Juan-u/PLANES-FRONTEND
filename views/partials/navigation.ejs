@@ -1,0 +1,30 @@
+<% const nav = typeof navigation === 'undefined' ? {} : navigation; const current = active || ''; %>
+<a class="skip-link" href="#contenido">Saltar al contenido principal</a>
+<aside class="app-sidebar" id="app-sidebar" aria-label="Navegación de módulos">
+  <a class="sidebar-brand" href="/menu" aria-label="Planes de Acción, panel principal">
+    <span class="brand-mark" aria-hidden="true">PA</span><span class="sidebar-brand-label">Planes de Acción</span>
+  </a>
+  <button class="sidebar-collapse" type="button" data-sidebar-collapse aria-controls="app-sidebar" aria-label="Contraer menú" aria-pressed="false" title="Contraer menú">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
+  </button>
+  <button class="sidebar-dismiss" type="button" data-sidebar-dismiss aria-label="Cerrar men&#250;"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+  <nav class="sidebar-links" aria-label="Principal">
+    <a href="/menu" class="sidebar-link <%= current === 'menu' ? 'is-active' : '' %>" aria-current="<%= current === 'menu' ? 'page' : 'false' %>" title="Panel principal">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5M5.5 9v11h13V9M9 20v-6h6v6"/></svg><span>Panel principal</span>
+    </a>
+    <% if (nav.plans) { %><a href="/planes" class="sidebar-link <%= current === 'planes' ? 'is-active' : '' %>" aria-current="<%= current === 'planes' ? 'page' : 'false' %>" aria-label="Planes de acción" title="Planes de acción"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h7"/></svg><span>Planes de acción</span></a><% } %>
+    <% if (nav.activities) { %><a href="/actividades" class="sidebar-link <%= current === 'actividades' || current === 'actividad-detalle' ? 'is-active' : '' %>" aria-current="<%= current === 'actividades' || current === 'actividad-detalle' ? 'page' : 'false' %>" aria-label="Actividades" title="Actividades"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v17H5zM8 8h8M8 12h8M8 16h5M8 2v4M16 2v4"/></svg><span>Actividades</span></a><% } %>
+    <% if (nav.followup) { %><a href="/seguimiento" class="sidebar-link <%= current === 'seguimiento' ? 'is-active' : '' %>" aria-current="<%= current === 'seguimiento' ? 'page' : 'false' %>" aria-label="Seguimiento" title="Seguimiento"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5M4 19h17M7 15l4-4 3 2 6-7"/></svg><span>Seguimiento</span></a><% } %>
+    <% if (nav.reports) { %><a href="/informes" class="sidebar-link <%= current === 'informes' ? 'is-active' : '' %>" aria-current="<%= current === 'informes' ? 'page' : 'false' %>" aria-label="Informes" title="Informes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V4M4 20h17M8 16v-4M13 16V7M18 16v-7"/></svg><span>Informes</span></a><% } %>
+    <% if(nav.internalControl){ %><a href="/control-interno" class="sidebar-link <%= current==='control-interno'?'is-active':'' %>" aria-current="<%= current==='control-interno'?'page':'false' %>" aria-label="Control Interno" title="Control Interno"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h14v18H5zM8 8h8M8 12h8M8 16h5"/></svg><span>Control Interno</span></a><% } %>
+    <% if (nav.users) { %><a href="/usuarios" class="sidebar-link <%= current === 'usuarios' || current === 'crear' || current === 'editar' ? 'is-active' : '' %>" aria-current="<%= current === 'usuarios' || current === 'crear' || current === 'editar' ? 'page' : 'false' %>" aria-label="Usuarios" title="Usuarios"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 20v-1.5a4.5 4.5 0 0 0-4.5-4.5h-4A4.5 4.5 0 0 0 3 18.5V20M9.5 10a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM16 4.2a3.5 3.5 0 0 1 0 6.6M17 14h.5a3.5 3.5 0 0 1 3.5 3.5V20"/></svg><span>Usuarios</span></a><% } %>
+    <% if (nav.roles) { %><a href="/roles" class="sidebar-link <%= current === 'roles' ? 'is-active' : '' %>" aria-current="<%= current === 'roles' ? 'page' : 'false' %>" aria-label="Roles y permisos" title="Roles y permisos"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 20 6v5c0 5-3.4 8.2-8 10-4.6-1.8-8-5-8-10V6zM9 12l2 2 4-4"/></svg><span>Roles y permisos</span></a><% } %>
+  </nav>
+  <a class="sidebar-link sidebar-logout" href="/logout" aria-label="Cerrar sesión" title="Cerrar sesión"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 4H5v16h5M14 8l4 4-4 4M9 12h9"/></svg><span>Cerrar sesión</span></a>
+</aside>
+<button class="sidebar-scrim" type="button" data-sidebar-close aria-label="Cerrar menú" tabindex="-1"></button>
+<header class="app-topbar">
+  <button class="mobile-menu-toggle" type="button" data-sidebar-open aria-label="Abrir menú" aria-controls="app-sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  <div class="topbar-page"><span class="topbar-eyebrow">Planes de Acción</span><strong><%= pageTitle || 'Panel principal' %></strong></div>
+</header>
+<script src="/app.js" defer></script>

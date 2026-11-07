@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import { mock, test } from 'node:test';
+import ejs from 'ejs';
+import { fileURLToPath } from 'node:url';
+
+// Institutional draft writes use the existing CSRF-protected mutation handlers.
 
 let apiResponse;
 let fetchFailure = null;
@@ -19,6 +23,7 @@ mock.module('node-fetch', { defaultExport: fetchMock });
 const {
   postLogin,
   logout,
+  getMenu,
   getPlanes,
   postCrearPlan,
   postActualizarPlan,
@@ -34,13 +39,20 @@ const {
   postCrearSeguimiento,
   postDecisionSeguimiento,
   postCargarEvidencia,
+  postBinaryEvidence,
+  postReopenRequest,
   getDescargarEvidencia,
   getUsuarios,
   getNuevoUsuario,
+  postCrearUsuario,
   getEditarUsuario,
   postEditarUsuario,
   postEliminarUsuario,
-  getRoleAdministration
+  getRoleAdministration,
+  postRoleConfiguration,
+  postRolePermissions,
+  postPermissionState,
+  convertCsvToExcelSemicolon
 } = await import('../../app/controllers/controller.views.js');
 
 function createResponse() {
@@ -72,6 +84,30 @@ function createResponse() {
   };
 }
 
+for (const [handler, kind, input] of [
+  [postCrearPlan, 'plan', { nombre: 'Borrador', institucional: { problema: '<conservar>' }, objective_description: ['Objetivo'], objective_id: [''] }],
+  [postActualizarPlan, 'plan', { id: '4', nombre: 'Edición', institucional: { revision: '2', meta_valor: '0.0000' } }],
+  [postCrearActividad, 'actividad', { id_plan: '4', responsable: 'Responsable', institucional: { nombre: 'Nueva', prioridad: 'alta' }, resource_description: ['Equipo'], resource_id: [''], resource_quantity: ['1'], resource_cost: ['1.20'] }],
+  [postActualizarActividad, 'actividad', { id: '5', descripcion: 'Conservar', institucional: { revision: '1', instrucciones: '<seguro>' } }]
+]) {
+  test(`institutional ${handler.name} preserves input after validation failure and clears it only after success`, async () => {
+    fetchCalls.length = 0;
+    fetchFailure = null;
+    apiResponse = { status: 400, ok: false };
+    const request = createProtectedRequest({ body: input }), res = createResponse();
+    await handler(request.req, res);
+    const sent = JSON.parse(fetchCalls[0][1].body);
+    assert.ok(sent.institucional);
+    assert.equal(sent.csrfToken, undefined);
+    assert.deepEqual(request.req.session.recordDraft.value.institucional, sent.institucional);
+    assert.equal(request.req.session.recordDraft.kind, kind);
+    assert.match(res.redirectedTo, /error=operation_failed/);
+    apiResponse = { status: 200, ok: true };
+    await handler(request.req, createResponse());
+    assert.equal(request.req.session.recordDraft, undefined);
+  });
+}
+
 function createProtectedRequest({ body = {}, params = {} } = {}) {
   let destroyCalls = 0;
   const session = {
@@ -94,6 +130,40 @@ function assertMessageDoesNotExpose(message, values) {
     assert.equal(message.includes(value), false);
   }
 }
+
+test('dashboard loads only real counts and follow-up indicators covered by effective permissions', async () => {
+  fetchCalls.length = 0;
+  fetchFailure = null;
+  apiResponse = async (url) => {
+    if (url.endsWith('/roles/capacidades')) return { status: 200, ok: true, async json() { return { permissions: ['M03.plans.read', 'M04.activities.read', 'M05.followup.read', 'M12.reports.read', 'M01.users.read', 'M01.roles.read'] }; } };
+    if (url.endsWith('/planes')) return { status: 200, ok: true, async json() { return [{ id_plan: 1 }, { id_plan: 2 }]; } };
+    if (url.endsWith('/actividades')) return { status: 200, ok: true, async json() { return [{ id_actividad: 5 }]; } };
+    if (url.endsWith('/periodos')) return { status: 200, ok: true, async json() { return [{ id_periodo: 6 }]; } };
+    if (url.endsWith('/informes/seguimiento?periodId=6')) return { status: 200, ok: true, async json() { return { activitiesPending: 3, summary: { promedioAvance: 42, coberturaTrimestral: 67 } }; } };
+    return { status: 200, ok: true, async json() { return []; } };
+  };
+  const response = createResponse();
+  await getMenu(createProtectedRequest().req, response);
+  assert.equal(response.rendered.view, 'menu');
+  assert.deepEqual(response.rendered.data.metrics, { plans: 2, activities: 1, pendingFollowups: 3, approvedProgress: 42, coverage: 67 });
+  assert.deepEqual(response.rendered.data.navigation, { plans: true, activities: true, followup: true, reports: true, users: true, roles: true });
+  assert.ok(fetchCalls.some(([url]) => url.endsWith('/informes/seguimiento?periodId=6')));
+});
+
+test('dashboard hides Control Interno unless all permissions required by its service are present', async () => {
+  fetchCalls.length = 0;
+  fetchFailure = null;
+  apiResponse = async url => url.endsWith('/roles/capacidades')
+    ? { status: 200, ok: true, async json() { return { permissions: ['M15.audit.read'] }; } }
+    : { status: 200, ok: true, async json() { return []; } };
+
+  const response = createResponse();
+  await getMenu(createProtectedRequest().req, response);
+
+  assert.equal(response.rendered.view, 'menu');
+  assert.equal(Object.hasOwn(response.rendered.data.navigation, 'internalControl'), false);
+  assert.equal(fetchCalls.some(([url]) => url.endsWith('/control-interno')), false);
+});
 
 async function postLoginAndCaptureLogs(req, res) {
   const logged = [];
@@ -375,6 +445,37 @@ test('role administration page denies accounts without any role-management read 
   assert.equal(fetchCalls.length, 1);
 });
 
+test('role administration loads its registered read endpoints with the session JWT', async () => {
+  fetchCalls.length = 0;
+  fetchFailure = null;
+  apiResponse = async (url) => {
+    if (url.endsWith('/roles/capacidades')) return { status: 200, ok: true, async json() {
+      return { permissions: ['M01.roles.read', 'M01.permissions.read', 'M01.requests.read'] };
+    } };
+    if (url.endsWith('/roles/catalogo')) return { status: 200, ok: true, async json() { return { roles: [{ id: 1, name: 'Role' }] }; } };
+    if (url.endsWith('/roles/permisos')) return { status: 200, ok: true, async json() { return { permissions: [{ id: 1, code: 'M01.roles.read' }] }; } };
+    if (url.endsWith('/roles/solicitudes')) return { status: 200, ok: true, async json() { return { requests: [] }; } };
+    assert.fail(`Unexpected role-administration endpoint: ${url}`);
+  };
+
+  const request = createProtectedRequest();
+  const response = createResponse();
+  response.locals = {};
+  await getRoleAdministration(request.req, response);
+
+  assert.equal(response.rendered.view, 'role-admin');
+  assert.deepEqual(response.rendered.data.roles, [{ id: 1, name: 'Role' }]);
+  assert.deepEqual(fetchCalls.map(([url]) => url), [
+    'http://localhost:3000/api/roles/capacidades',
+    'http://localhost:3000/api/roles/catalogo',
+    'http://localhost:3000/api/roles/permisos',
+    'http://localhost:3000/api/roles/solicitudes'
+  ]);
+  for (const [, options] of fetchCalls) {
+    assert.equal(options.headers.Authorization, 'Bearer simulated-jwt');
+  }
+});
+
 test('update validation errors use a controlled message instead of backend text', async () => {
   fetchFailure = null;
   apiResponse = {
@@ -437,6 +538,24 @@ test('API 503 does not render protected data and preserves the web session', asy
   assert.equal(res.rendered, null);
 });
 
+test('API 404 remains distinct from service unavailability and does not expose backend details', async () => {
+  fetchFailure = null;
+  apiResponse = {
+    status: 404, ok: false,
+    async text() { return 'internal SQL details'; }
+  };
+  const request = createProtectedRequest();
+  const res = createResponse();
+
+  await getPlanes(request.req, res);
+
+  assert.equal(request.destroyCalls(), 0);
+  assert.equal(request.req.session.token, 'simulated-jwt');
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.sent, 'No se encontró la información solicitada.');
+  assert.equal(String(res.sent).includes('internal SQL details'), false);
+});
+
 test('deactivation API 503 reports a generic users service failure without redirecting as success', async () => {
   fetchCalls.length = 0;
   fetchFailure = null;
@@ -492,7 +611,8 @@ test('plans page loads authorized plans and derives mutation controls from backe
   assert.equal(res.rendered.data.planes[0].id_plan, 4);
   assert.equal(res.rendered.data.canCreatePlans, true);
   assert.equal(res.rendered.data.canUpdatePlans, false);
-  assert.equal(fetchCalls.length, 2);
+  assert.equal(fetchCalls.length, 3);
+  assert.ok(fetchCalls[2][0].endsWith('/planes/catalogo-institucional'));
 });
 
 test('plan creation forwards only allowed fields with JWT and CSRF validation', async () => {
@@ -618,14 +738,20 @@ test('CSV export forwards only recognized filters and returns a download', async
   fetchFailure = null;
   apiResponse = async (url) => url.endsWith('/roles/capacidades')
     ? { status: 200, ok: true, async json() { return { permissions: ['M12.reports.export'] }; } }
-    : { status: 200, ok: true, async text() { return 'id_calificacion\r\n1'; } };
+    : { status: 200, ok: true, async text() { return '\uFEFF"id_calificacion","observaciones"\r\n"1","Texto, con; comillas ""dobles"" y\nsalto"'; } };
   const request = createProtectedRequest();
   request.req.query = { trimestre: '3', injection: 'ignored' };
   const res = createResponse();
   await getInformeCsv(request.req, res);
   assert.match(fetchCalls[1][0], /export\.csv\?trimestre=3$/);
   assert.equal(res.attachmentName, 'calificaciones.csv');
-  assert.equal(res.sent, 'id_calificacion\r\n1');
+  assert.equal(res.sent, '\uFEFF"id_calificacion";"observaciones"\r\n"1";"Texto, con; comillas ""dobles"" y\nsalto"');
+});
+
+test('CSV semicolon conversion preserves UTF-8 BOM, quoted delimiters, newlines and formula protection', () => {
+  const source = `\uFEFF"uno","dos"\r\n"Plan, A; B","'=SUM(1,2)"`;
+  assert.equal(convertCsvToExcelSemicolon(source), `\uFEFF"uno";"dos"\r\n"Plan, A; B";"'=SUM(1,2)"`);
+  assert.equal(convertCsvToExcelSemicolon('\uFEFF"id","nombre"\r\n'), '\uFEFF"id";"nombre"');
 });
 
 test('follow-up page loads periods, activities, history and the existing summary', async () => {
@@ -642,9 +768,9 @@ test('follow-up page loads periods, activities, history and the existing summary
   const res = createResponse();
   await getSeguimiento(request.req, res);
   assert.equal(res.rendered.view, 'seguimiento');
-  assert.equal(res.rendered.data.canApprove, true);
+  assert.equal(res.rendered.data.canApprove, false);
   assert.equal(res.rendered.data.activities[0].id_actividad, 8);
-  assert.equal(fetchCalls.length, 5);
+  assert.equal(fetchCalls.length, 6);
 });
 
 test('follow-up submission and decision handlers require CSRF and whitelist payload', async () => {
@@ -659,6 +785,17 @@ test('follow-up submission and decision handlers require CSRF and whitelist payl
   assert.deepEqual(JSON.parse(fetchCalls[1][1].body), { resultado: 'approved', motivo: 'Revisado' });
 });
 
+test('follow-up self-decision denial explains that another authorized reviewer must decide', async () => {
+  fetchCalls.length = 0; fetchFailure = null;
+  apiResponse = { status: 403, ok: false, async json() { return { error: 'Quien registró el seguimiento no puede aprobarlo ni rechazarlo.' }; } };
+  const decision = createProtectedRequest({ body: { id_seguimiento: '19', id_periodo: '3', resultado: 'approved', motivo: 'Revisado' } });
+  const res = createResponse();
+  await postDecisionSeguimiento(decision.req, res);
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.sent, 'No puedes aprobar ni rechazar un seguimiento que enviaste. Otra persona autorizada debe revisarlo.');
+  assert.equal(fetchCalls.length, 1);
+});
+
 test('evidence upload and download proxy authenticated API bytes', async () => {
   fetchCalls.length = 0; fetchFailure = null; apiResponse = { status: 201, ok: true };
   const upload = createProtectedRequest({ body: { id_actividad: '8', nombre_original: 'proof.pdf', mime_type: 'application/pdf', contenido_base64: 'JVBERi0=', observaciones: 'Proof', storagePath: 'fake' } });
@@ -671,4 +808,225 @@ test('evidence upload and download proxy authenticated API bytes', async () => {
   const downloadRes = createResponse(); await getDescargarEvidencia(download.req, downloadRes);
   assert.equal(downloadRes.headers['Content-Type'], 'application/pdf');
   assert.equal(downloadRes.sent.toString(), 'pdf');
+});
+
+test('role configuration and permission forms use the backend PUT contracts', async () => {
+  fetchCalls.length = 0;
+  fetchFailure = null;
+  apiResponse = { status: 200, ok: true };
+
+  const configuration = createProtectedRequest({ body: {
+    roleId: '12', classification: 'ordinary', requiresScope: 'false',
+    allowOpenEndedAssignment: 'true', reason: 'Update test role'
+  } });
+  await postRoleConfiguration(configuration.req, createResponse());
+  assert.equal(fetchCalls[0][0], 'http://localhost:3000/api/roles/catalogo/12/configuracion');
+  assert.equal(fetchCalls[0][1].method, 'PUT');
+  assert.deepEqual(JSON.parse(fetchCalls[0][1].body), {
+    classification: 'ordinary', requiresScope: false,
+    allowOpenEndedAssignment: true, reason: 'Update test role'
+  });
+
+  const permissions = createProtectedRequest({ body: {
+    roleId: '12', permissionCodes: 'M03.plans.read', reason: 'Set test permission'
+  } });
+  await postRolePermissions(permissions.req, createResponse());
+  assert.equal(fetchCalls[1][0], 'http://localhost:3000/api/roles/catalogo/12/permisos');
+  assert.equal(fetchCalls[1][1].method, 'PUT');
+  assert.deepEqual(JSON.parse(fetchCalls[1][1].body), {
+    permissionCodes: ['M03.plans.read'], reason: 'Set test permission'
+  });
+
+  const state = createProtectedRequest({ body: {
+    code: 'M03.plans.read', active: 'false', reason: 'Disable test permission'
+  } });
+  await postPermissionState(state.req, createResponse());
+  assert.equal(fetchCalls[2][0], 'http://localhost:3000/api/roles/permisos/M03.plans.read/estado');
+  assert.equal(fetchCalls[2][1].method, 'PUT');
+  assert.deepEqual(JSON.parse(fetchCalls[2][1].body), {
+    active: false, reason: 'Disable test permission'
+  });
+});
+
+// Etapa 1: estados de consulta y recuperación segura de formularios.
+const fullNavigationPermissions = ['M03.plans.read', 'M04.activities.read', 'M05.followup.read', 'M12.reports.read', 'M01.users.read', 'M01.roles.read'];
+const okJson = (data) => ({ status: 200, ok: true, async json() { return data; } });
+const renderCaptured = (response) => ejs.renderFile(fileURLToPath(new URL(`../../views/${response.rendered.view}.ejs`, import.meta.url)), response.rendered.data);
+
+for (const scenario of ['records', 'empty', 'plans-http', 'activities-network', 'plans-json', 'activities-shape', 'periods-failure', 'summary-failure', 'no-periods', 'missing-summary-values', 'forbidden', 'restricted', 'caps-network', 'caps-json', 'caps-shape', 'expired']) {
+  test(`dashboard distinguishes states without losing valid metrics: ${scenario}`, async () => {
+    fetchCalls.length = 0; fetchFailure = null;
+    apiResponse = async (url) => {
+      if (url.endsWith('/roles/capacidades')) {
+        if (scenario === 'caps-network') throw Error('private network diagnostic');
+        if (scenario === 'caps-json') return { status: 200, ok: true, async json() { throw Error('invalid json'); } };
+        return okJson({ permissions: scenario === 'caps-shape' ? 'M03.plans.read' : scenario === 'restricted' ? ['M05.followup.read'] : fullNavigationPermissions });
+      }
+      if (url.endsWith('/planes')) {
+        if (scenario === 'expired') return { status: 401, ok: false };
+        if (scenario === 'forbidden') return { status: 403, ok: false };
+        if (scenario === 'plans-http') return { status: 503, ok: false };
+        if (scenario === 'plans-json') return { status: 200, ok: true, async json() { throw Error('private JSON error'); } };
+        return okJson(scenario === 'empty' ? [] : [{ id_plan: 1 }, { id_plan: 2 }]);
+      }
+      if (url.endsWith('/actividades')) {
+        if (scenario === 'activities-network') throw Error('private network diagnostic');
+        return okJson(scenario === 'activities-shape' ? {} : scenario === 'empty' ? [] : [{ id_actividad: 1 }]);
+      }
+      if (url.endsWith('/periodos')) return scenario === 'periods-failure' ? { status: 503, ok: false } : okJson(scenario === 'no-periods' ? [] : [{ id_periodo: 3 }]);
+      if (url.includes('/informes/seguimiento?')) {
+        if (scenario === 'summary-failure') throw Error('private network diagnostic');
+        return okJson(scenario === 'missing-summary-values' ? {} : { activitiesPending: 0, summary: { promedioAvance: 0, coberturaTrimestral: 42.5 } });
+      }
+      return okJson([]);
+    };
+    const request = createProtectedRequest(), response = createResponse();
+    await getMenu(request.req, response);
+    if (scenario === 'expired') { assert.equal(response.redirectedTo, '/'); assert.equal(request.destroyCalls(), 1); return; }
+    const data = response.rendered.data, html = await renderCaptured(response);
+    assert.equal(response.rendered.view, 'menu');
+    assert.doesNotMatch(html, /private network|private JSON/);
+    if (scenario.startsWith('caps-')) {
+      assert.ok(data.dashboardError); assert.equal(fetchCalls.length, 1);
+      assert.ok(Object.values(data.navigation).every(value => value === false));
+      assert.doesNotMatch(html, /No hay m[o\u00f3]dulos habilitados|href="\/planes"/);
+      return;
+    }
+    if (scenario === 'restricted') {
+      assert.equal(data.metrics.plans, null); assert.equal(data.canReadPlans, false);
+      assert.equal(data.canReadActivities, false);
+      assert.doesNotMatch(html, /Planes registrados|Actividades existentes|href="\/usuarios"/);
+      assert.ok(fetchCalls.every(([url]) => !/\/(planes|actividades|usuarios|roles\/catalogo)$/.test(url)));
+    } else if (scenario === 'forbidden') {
+      assert.equal(data.canReadPlans, false); assert.equal(data.metrics.plans, null);
+      assert.equal(data.metricStates.plans, 'forbidden'); assert.doesNotMatch(html, /Planes registrados/);
+    } else if (scenario.startsWith('plans-')) {
+      assert.equal(data.metrics.plans, null); assert.equal(data.metricStates.plans, 'error');
+      assert.equal(data.metrics.activities, 1); assert.match(html, /No fue posible consultar esta informaci/);
+    } else if (scenario.startsWith('activities-')) {
+      assert.equal(data.metrics.activities, null); assert.equal(data.metricStates.activities, 'error');
+      assert.equal(data.metrics.plans, 2);
+    } else {
+      assert.equal(data.metrics.plans, scenario === 'empty' ? 0 : 2);
+      assert.equal(data.metrics.activities, scenario === 'empty' ? 0 : 1);
+    }
+    if (['periods-failure', 'summary-failure', 'no-periods', 'missing-summary-values'].includes(scenario)) {
+      assert.equal(data.metrics.pendingFollowups, null); assert.equal(data.metrics.approvedProgress, null);
+      assert.equal(data.metricStates.pendingFollowups, scenario.endsWith('failure') ? 'error' : 'unavailable');
+      assert.equal(data.metrics.plans, 2);
+    } else {
+      assert.equal(data.metrics.pendingFollowups, 0); assert.equal(data.metrics.approvedProgress, 0);
+      assert.equal(data.metrics.coverage, 42.5);
+    }
+    if (scenario === 'empty') {
+      assert.equal(data.metricStates.plans, 'empty'); assert.match(html, /No hay registros disponibles/);
+      assert.match(html, /metric-value">0</);
+    }
+  });
+}
+
+for (const handler of [postCrearUsuario, postEditarUsuario]) {
+  test(`${handler.name} preserves successful submission without capability lookup or resubmission`, async () => {
+    fetchCalls.length = 0; fetchFailure = null; apiResponse = { status: 201, ok: true };
+    const request = createProtectedRequest({ body: { id: '7', nombre: 'Ana', email: 'ana@example.invalid', password: 'simulated-password', reason: 'Test' } });
+    const response = createResponse();
+    await handler(request.req, response);
+    assert.equal(response.redirectedTo, '/usuarios'); assert.equal(response.rendered, null);
+    assert.equal(fetchCalls.length, 1);
+    assert.equal(JSON.parse(fetchCalls[0][1].body).nombre, 'Ana');
+  });
+  for (const failure of ['validation', 'http', 'network']) {
+    for (const permissions of [fullNavigationPermissions, ['M01.users.read']]) {
+      test(`${handler.name} restores authorized navigation and non-sensitive values after ${failure} (${permissions.length} permissions)`, async () => {
+        fetchCalls.length = 0; fetchFailure = null;
+        apiResponse = async (url) => {
+          if (url.endsWith('/roles/capacidades')) return okJson({ permissions });
+          if (failure === 'network') throw Error('private connection failure');
+          return { status: failure === 'http' ? 503 : 422, ok: false };
+        };
+        const body = { id: '7', nombre: '<script>alert(1)</script>', email: 'person" autofocus="test@example.invalid', reason: '</textarea><script>alert(2)</script>', password: 'NEVER-RENDER-THIS-PASSWORD', extra: 'do-not-copy' };
+        const request = createProtectedRequest({ body }), response = createResponse();
+        await handler(request.req, response);
+        const data = response.rendered.data, html = await renderCaptured(response);
+        assert.equal(data.formValues.nombre, body.nombre); assert.equal(data.formValues.email, body.email);
+        assert.equal(data.formValues.reason, body.reason); assert.equal(data.csrfToken, 'test-csrf-token');
+        assert.equal(data.navigation.users, true); assert.equal(data.navigation.plans, permissions.length > 1);
+        assert.equal(response.statusCode, failure === 'validation' ? 400 : 503);
+        assert.match(html, /name="csrfToken" value="test-csrf-token"/);
+        assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+        assert.doesNotMatch(html, /<script>alert\(|NEVER-RENDER-THIS-PASSWORD|do-not-copy|autofocus="test/);
+        assert.doesNotMatch(JSON.stringify(data), /NEVER-RENDER-THIS-PASSWORD/);
+        assert.doesNotMatch(JSON.stringify(request.req.session), /NEVER-RENDER-THIS-PASSWORD/);
+        if (handler === postCrearUsuario) assert.doesNotMatch(html.match(/<input[^>]*type="password"[^>]*>/)[0], /\bvalue=/);
+        if (permissions.length === 1) assert.doesNotMatch(html, /href="\/(planes|roles|actividades|informes)"/);
+        assert.equal(fetchCalls.filter(([, options]) => options.method === (handler === postCrearUsuario ? 'POST' : 'PUT')).length, 1);
+        assert.equal(fetchCalls.length, 2);
+      });
+    }
+  }
+  for (const failure of ['http', 'network', 'malformed', 'json', 'expired']) {
+    test(`${handler.name} fails closed when capability recovery fails: ${failure}`, async () => {
+      fetchCalls.length = 0; fetchFailure = null;
+      apiResponse = async url => {
+        if (!url.endsWith('/roles/capacidades')) return { status: 400, ok: false };
+        if (failure === 'network') throw Error('private error');
+        if (failure === 'http' || failure === 'expired') return { status: failure === 'expired' ? 401 : 503, ok: false };
+        if (failure === 'json') return { status: 200, ok: true, async json() { throw Error('invalid JSON'); } };
+        return okJson({ permissions: 'M01.users.read' });
+      };
+      const request = createProtectedRequest({ body: { id: '7', nombre: 'Ana', email: 'ana@example.invalid', password: 'not-retained' } }), response = createResponse();
+      await handler(request.req, response);
+      if (failure === 'expired') { assert.equal(response.redirectedTo, '/'); assert.equal(request.destroyCalls(), 1); return; }
+      assert.ok(Object.values(response.rendered.data.navigation).every(value => value === false));
+      assert.equal(response.rendered.data.formValues.nombre, 'Ana');
+      const html = await renderCaptured(response);
+      assert.doesNotMatch(html.match(/<aside[\s\S]*?<\/aside>/)[0], /href="\/(usuarios|planes|actividades|roles|informes)"/);
+    });
+  }
+  test(`${handler.name} rejects invalid CSRF before any service call`, async () => {
+    fetchCalls.length = 0; fetchFailure = null;
+    const request = createProtectedRequest({ body: { csrfToken: 'invalid' } }), response = createResponse();
+    await handler(request.req, response); assert.equal(response.statusCode, 403); assert.equal(fetchCalls.length, 0);
+  });
+}
+
+for (const [label, period, expected] of [
+  ['valid', { id_periodo: 3, anio: 2026, trimestre: 4 }, { year: 2026, quarter: 4 }],
+  ['numeric strings', { id_periodo: '3', anio: '2026', trimestre: '1' }, { year: 2026, quarter: 1 }],
+  ['missing', undefined, null],
+  ['other period', { id_periodo: 9, anio: 2026, trimestre: 4 }, null],
+  ['missing id', { anio: 2026, trimestre: 4 }, null],
+  ['invalid quarter', { id_periodo: 3, anio: 2026, trimestre: 5 }, null],
+  ['invalid year', { id_periodo: 3, anio: 'unknown', trimestre: 4 }, null],
+  ['boolean', { id_periodo: 3, anio: 2026, trimestre: true }, null]
+]) {
+  test(`dashboard labels only the verified summary period: ${label}`, async () => {
+    fetchFailure = null; fetchCalls.length = 0;
+    apiResponse = async url => {
+      if (url.endsWith('/roles/capacidades')) return okJson({ permissions: ['M05.followup.read'] });
+      if (url.endsWith('/periodos')) return okJson([{ id_periodo: 3, anio: 1999, trimestre: 2 }]);
+      return okJson({ period, activitiesPending: 0, summary: { promedioAvance: 12.5, coberturaTrimestral: 0 } });
+    };
+    const res = createResponse(); await getMenu(createProtectedRequest().req, res);
+    assert.deepEqual(res.rendered.data.followupPeriod, expected);
+    assert.equal(res.rendered.data.metrics.approvedProgress, 12.5);
+    assert.equal(res.rendered.data.metrics.pendingFollowups, 0);
+    const html = await renderCaptured(res);
+    assert.doesNotMatch(html, /1999/);
+    if (!expected) assert.equal((html.match(/Per\u00edodo no disponible/g) ?? []).length, 3);
+    else assert.equal((html.match(/trimestre de 2026/g) ?? []).length, 3);
+    assert.equal(fetchCalls.length, 3);
+  });
+}
+
+test('binary BFF checks header CSRF and forwards only bounded bytes and file metadata',async()=>{
+ fetchCalls.length=0;fetchFailure=null;apiResponse={status:201,ok:true};
+ const request=createProtectedRequest({params:{id:'8'}});request.req.headers={'x-csrf-token':'test-csrf-token','x-evidence-name':'proof.txt','x-evidence-type':'text/plain','x-evil-authority':'spoof'};request.req.body=Buffer.from('Evidence');
+ const result=createResponse();await postBinaryEvidence(request.req,result);
+ assert.equal(result.statusCode,201);assert.ok(Buffer.isBuffer(fetchCalls[0][1].body));assert.equal(fetchCalls[0][1].headers['x-evil-authority'],undefined);assert.equal(request.req.session.file,undefined);
+ fetchCalls.length=0;request.req.headers['x-csrf-token']='wrong';const denied=createResponse();await postBinaryEvidence(request.req,denied);assert.equal(denied.statusCode,403);assert.equal(fetchCalls.length,0);
+});
+test('reopen BFF preserves reason without presenting it as a granted authority',async()=>{
+ fetchCalls.length=0;fetchFailure=null;apiResponse={status:409,ok:false};const request=createProtectedRequest({params:{id:'3'},body:{motivo:'Conservar motivo',client_id:'fixture',estado:'open',approved:true}}),result=createResponse();
+ await postReopenRequest(request.req,result);assert.deepEqual(JSON.parse(fetchCalls[0][1].body),{motivo:'Conservar motivo',client_id:'fixture'});assert.equal(request.req.session.reopenDraft.motivo,'Conservar motivo');assert.match(result.redirectedTo,/error=reopen_request/);
 });

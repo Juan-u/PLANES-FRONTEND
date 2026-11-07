@@ -6,16 +6,10 @@
   <title>Roles y permisos | Planes de Acción</title>
   <link rel="stylesheet" href="/style.css">
 </head>
-<body>
-  <header class="app-header">
-    <div class="header-inner">
-      <a class="brand" href="/menu"><span class="brand-mark" aria-hidden="true">PA</span><span>Planes de Acción</span></a>
-      <nav class="navbar-links" aria-label="Navegación principal">
-        <a href="/menu">Menú</a><% if (capabilities['M03.plans.read']) { %><a href="/planes">Planes</a><% } %><% if (capabilities['M01.users.read']) { %><a href="/usuarios">Usuarios</a><% } %><a href="/roles" aria-current="page">Roles y permisos</a><a href="/logout">Cerrar sesión</a>
-      </nav>
-    </div>
-  </header>
-  <main class="container">
+<body class="app-body" data-time-zone="<%= (typeof timeZone !== 'undefined' ? timeZone : 'America/Bogota') %>">
+  <%- include('partials/navigation', { active: 'roles', pageTitle: 'Roles y permisos', navigation: typeof navigation === 'undefined' ? {} : navigation }) %>
+  <% const displayLabel = (value) => typeof labelForDisplay === 'function' ? labelForDisplay(value) : (value ?? 'Sin estado'); %>
+  <main id="contenido" tabindex="-1" class="container">
     <section class="card" aria-labelledby="role-admin-title">
       <div class="page-heading"><div><h1 id="role-admin-title">Roles y permisos</h1><p>Los cambios requieren autorización vigente, motivo y registro de auditoría.</p></div></div>
       <% if (error) { %><div class="alert error" role="alert"><%= error %></div><% } %>
@@ -25,9 +19,9 @@
       <div class="page-heading"><h2 id="requests-title">Solicitudes de cambio</h2></div>
       <% const pendingRequests = requests.filter((request) => request.status === 'pending_approval'); %>
       <% if (pendingRequests.length) { %>
-        <div class="table-wrap"><table><thead><tr><th>Acción</th><th>Usuario</th><th>Rol</th><th>Motivo</th><th>Vence</th><th>Decisión</th></tr></thead><tbody>
+        <div class="table-wrap" role="region" aria-label="Administraci&#243;n de roles y permisos" tabindex="0"><table><thead><tr><th scope="col">Acción</th><th scope="col">Usuario</th><th scope="col">Rol</th><th scope="col">Motivo</th><th scope="col">Vence</th><th scope="col">Decisión</th></tr></thead><tbody>
           <% pendingRequests.forEach((request) => { %><tr>
-            <td><%= request.action === 'assign' ? 'Asignar' : 'Revocar' %></td><td><%= request.targetUserId ?? '—' %></td><td><%= request.roleName ?? request.roleId ?? '—' %></td><td><%= request.reason %></td><td><%= request.expiresAt %></td>
+            <td><%= request.action === 'assign' ? 'Asignar' : 'Revocar' %></td><td><%= request.targetUserId ?? '—' %></td><td><%= displayLabel(request.roleName ?? request.roleId) %></td><td><%= request.reason %></td><td><%= request.expiresAt %></td>
             <td><div class="actions"><% if (request.canDecide) { %><% ['approve','reject'].forEach((decision) => { %>
               <form action="/roles/solicitudes/decision" method="POST">
                 <input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="requestId" value="<%= request.id %>"><input type="hidden" name="decision" value="<%= decision %>">
@@ -38,8 +32,8 @@
           </tr><% }); %>
         </tbody></table></div>
       <% } else { %><p class="empty-state">No hay solicitudes pendientes.</p><% } %>
-      <details><summary>Historial de solicitudes</summary><div class="table-wrap"><table><thead><tr><th>ID</th><th>Acción</th><th>Estado</th><th>Solicitante</th><th>Decisor</th><th>Motivo de decisión</th></tr></thead><tbody>
-        <% requests.filter((request) => request.status !== 'pending_approval').forEach((request) => { %><tr><td><%= request.id %></td><td><%= request.action %></td><td><%= request.status %></td><td><%= request.requestedBy %></td><td><%= request.decidedBy ?? 'Sistema' %></td><td><%= request.decisionReason ?? '—' %></td></tr><% }); %>
+      <details><summary>Historial de solicitudes</summary><div class="table-wrap" role="region" aria-label="Administraci&#243;n de roles y permisos" tabindex="0"><table><thead><tr><th scope="col">ID</th><th scope="col">Acción</th><th scope="col">Estado</th><th scope="col">Solicitante</th><th scope="col">Decisor</th><th scope="col">Motivo de decisión</th></tr></thead><tbody>
+        <% requests.filter((request) => request.status !== 'pending_approval').forEach((request) => { %><tr><td><%= request.id %></td><td><%= request.action === 'assign' ? 'Asignación' : request.action === 'revoke' ? 'Revocación' : displayLabel(request.action) %></td><td><span class="status-pill" data-state="<%= request.status %>"><%= displayLabel(request.status) %></span></td><td><%= request.requestedBy %></td><td><%= request.decidedBy ?? 'Sistema' %></td><td><%= request.decisionReason ?? '—' %></td></tr><% }); %>
       </tbody></table></div></details>
     </section><% } %>
 
@@ -50,22 +44,22 @@
         <button class="btn btn-secondary" type="submit">Consultar asignaciones</button>
       </form>
       <% if (selectedUserId) { %>
-        <% if (assignments.length) { %><div class="table-wrap"><table><thead><tr><th>Asignación</th><th>Rol</th><th>Ámbito</th><th>Vigencia</th><th>Estado</th><th>Revocar</th></tr></thead><tbody>
-          <% assignments.forEach((assignment) => { %><tr><td><code><%= assignment.id %></code></td><td><%= assignment.roleName %></td><td><%= assignment.scopeRef ?? 'Global' %></td><td><%= assignment.validFrom %> — <%= assignment.validUntil ?? 'sin vencimiento' %></td><td><%= assignment.status %></td><td>
-            <% if (assignment.canRevoke && ['active','scheduled'].includes(assignment.status)) { %><form action="/roles/revocaciones" method="POST"><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="assignmentId" value="<%= assignment.id %>"><label class="sr-only" for="revoke-reason-<%= assignment.id %>">Motivo de revocación</label><input class="form-control" id="revoke-reason-<%= assignment.id %>" name="reason" maxlength="4000" required placeholder="Motivo"><button class="btn btn-danger" type="submit">Solicitar revocación</button></form><% } %>
+        <% if (assignments.length) { %><div class="table-wrap" role="region" aria-label="Administraci&#243;n de roles y permisos" tabindex="0"><table><thead><tr><th scope="col">Asignación</th><th scope="col">Rol</th><th scope="col">Ámbito</th><th scope="col">Vigencia</th><th scope="col">Estado</th><th scope="col">Revocar</th></tr></thead><tbody>
+          <% assignments.forEach((assignment) => { %><tr><td><code><%= assignment.id %></code></td><td><%= displayLabel(assignment.roleName) %></td><td><%= assignment.scopeRef ?? 'Global' %></td><td><%= assignment.validFrom %> — <%= assignment.validUntil ?? 'sin vencimiento' %></td><td><span class="status-pill" data-state="<%= assignment.status %>"><%= displayLabel(assignment.status) %></span></td><td>
+            <% if (assignment.canRevoke && ['active','scheduled'].includes(assignment.status)) { %><form action="/roles/revocaciones" method="POST" data-confirm="¿Confirmas enviar la solicitud de revocación de este rol?"><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="assignmentId" value="<%= assignment.id %>"><label class="sr-only" for="revoke-reason-<%= assignment.id %>">Motivo de revocación</label><input class="form-control" id="revoke-reason-<%= assignment.id %>" name="reason" maxlength="4000" required placeholder="Motivo"><button class="btn btn-danger" type="submit">Solicitar revocación</button></form><% } %>
           </td></tr><% }); %>
         </tbody></table></div><% } else { %><p class="empty-state">No se encontraron asignaciones.</p><% } %>
       <% } %>
       <% if (capabilities['assign-role']) { %><details><summary>Solicitar una asignación</summary>
         <form action="/roles/asignaciones" method="POST" class="form-grid">
           <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
-          <div class="form-group"><label for="target-user">ID de usuario</label><input class="form-control" id="target-user" name="targetUserId" inputmode="numeric" required></div>
-          <div class="form-group"><label for="target-role">Rol</label><select class="form-control" id="target-role" name="roleId" required><option value="">Selecciona un rol</option><% roles.forEach((role) => { %><option value="<%= role.id %>"><%= role.name %></option><% }); %></select></div>
-          <div class="form-group"><label for="scope-kind">Tipo exacto del ámbito</label><select class="form-control" id="scope-kind" name="scopeKind"><option value="string">Texto</option><option value="number">Número</option></select></div>
-          <div class="form-group"><label for="scope-ref">Referencia de ámbito</label><input class="form-control" id="scope-ref" name="scopeRef" placeholder="Déjalo vacío solo para roles globales"></div>
-          <div class="form-group"><label for="valid-from">Inicio (ISO 8601 con zona horaria, opcional)</label><input class="form-control" id="valid-from" name="validFrom" placeholder="2026-11-01T09:00:00Z"></div>
-          <div class="form-group"><label for="valid-until">Fin (ISO 8601 con zona horaria, opcional según configuración)</label><input class="form-control" id="valid-until" name="validUntil" placeholder="2027-11-01T09:00:00Z"></div>
-          <div class="form-group form-grid__full"><label for="assignment-reason">Motivo</label><textarea class="form-control" id="assignment-reason" name="reason" required maxlength="4000"></textarea></div>
+          <div class="form-group"><div class="field"><label for="target-user">ID de usuario</label><input class="form-control" id="target-user" name="targetUserId" inputmode="numeric" required></div></div>
+          <div class="form-group"><div class="field"><label for="target-role">Rol</label><select class="form-control" id="target-role" name="roleId" required><option value="">Selecciona un rol</option><% roles.forEach((role) => { %><option value="<%= role.id %>"><%= displayLabel(role.name) %></option><% }); %></select></div></div>
+          <div class="form-group"><div class="field"><label for="scope-kind">Tipo exacto del ámbito</label><select class="form-control" id="scope-kind" name="scopeKind"><option value="string">Texto</option><option value="number">Número</option></select></div></div>
+          <div class="form-group"><div class="field"><label for="scope-ref">Referencia de ámbito</label><input class="form-control" id="scope-ref" name="scopeRef" placeholder="Déjalo vacío solo para roles globales"></div></div>
+          <div class="form-group"><div class="field"><label for="valid-from">Inicio (ISO 8601 con zona horaria, opcional)</label><input class="form-control" id="valid-from" name="validFrom" placeholder="2026-11-01T09:00:00Z"></div></div>
+          <div class="form-group"><div class="field"><label for="valid-until">Fin (ISO 8601 con zona horaria, opcional según configuración)</label><input class="form-control" id="valid-until" name="validUntil" placeholder="2027-11-01T09:00:00Z"></div></div>
+          <div class="form-group form-grid__full"><div class="field"><label for="assignment-reason">Motivo</label><textarea class="form-control" id="assignment-reason" name="reason" required maxlength="4000"></textarea></div></div>
           <button class="btn btn-primary" type="submit">Enviar asignación</button>
         </form>
       </details><% } %>
@@ -73,8 +67,8 @@
 
     <% if (capabilities['M01.roles.read']) { %><section class="card" aria-labelledby="catalog-title">
       <div class="page-heading"><h2 id="catalog-title">Catálogo de roles</h2></div>
-      <div class="table-wrap"><table><thead><tr><th>Rol</th><th>Clasificación</th><th>Ámbito obligatorio</th><th>Vigencia indefinida</th><th>Permisos activos</th><th>Configuración</th></tr></thead><tbody>
-        <% roles.forEach((role) => { %><tr><td><strong><%= role.name %></strong><br><%= role.description ?? '' %></td><td><%= role.classification ?? 'Sin configurar' %></td><td><%= role.requiresScope ? 'Sí' : 'No' %></td><td><%= role.allowOpenEndedAssignment ? 'Sí' : 'No' %></td><td><%= role.permissions.filter((permission) => permission.active).length %></td><td>
+      <div class="table-wrap" role="region" aria-label="Administraci&#243;n de roles y permisos" tabindex="0"><table><thead><tr><th scope="col">Rol</th><th scope="col">Clasificación</th><th scope="col">Ámbito obligatorio</th><th scope="col">Vigencia indefinida</th><th scope="col">Permisos activos</th><th scope="col">Configuración</th></tr></thead><tbody>
+        <% roles.forEach((role) => { %><tr><td><strong><%= displayLabel(role.name) %></strong><br><%= role.description ?? '' %></td><td><%= displayLabel(role.classification ?? 'Sin configurar') %></td><td><%= role.requiresScope ? 'Sí' : 'No' %></td><td><%= role.allowOpenEndedAssignment ? 'Sí' : 'No' %></td><td><%= role.permissions.filter((permission) => permission.active).length %></td><td>
           <% if (capabilities['M01.roles.manage']) { %><form action="/roles/configuracion" method="POST"><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="roleId" value="<%= role.id %>">
             <label for="class-<%= role.id %>">Clasificación</label><select class="form-control" id="class-<%= role.id %>" name="classification"><option value="ordinary" <%= role.classification === 'ordinary' ? 'selected' : '' %>>Ordinario</option><option value="privileged" <%= role.classification === 'privileged' ? 'selected' : '' %>>Privilegiado</option></select>
             <label><input type="checkbox" name="requiresScope" value="true" <%= role.requiresScope ? 'checked' : '' %>> Ámbito requerido</label>
@@ -89,7 +83,7 @@
         <% roles.forEach((role) => { const activeCodes = new Set(role.permissions.filter((permission) => permission.active).map((permission) => permission.code)); %>
           <form action="/roles/permisos" method="POST" class="permission-editor">
             <input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="roleId" value="<%= role.id %>">
-            <h3><%= role.name %></h3>
+            <h3><%= displayLabel(role.name) %></h3>
             <% permissions.forEach((permission) => { %><label class="permission-option"><input type="checkbox" name="permissionCodes" value="<%= permission.code %>" <%= activeCodes.has(permission.code) ? 'checked' : '' %>><span><strong><%= permission.code %></strong><small><%= permission.description ?? '' %></small></span></label><% }); %>
             <% if (role.name === 'system_administrator') { %><p class="form-help">Los permisos del perfil administrador total están protegidos para evitar pérdida de acceso.</p><% } %>
             <label for="permissions-reason-<%= role.id %>">Motivo de cambio</label><input class="form-control" id="permissions-reason-<%= role.id %>" name="reason" maxlength="4000" required>
@@ -99,12 +93,12 @@
       </details><% } %>
       <% if (capabilities['M01.roles.manage']) { %><details><summary>Crear un rol sin permisos asignados</summary>
         <form action="/roles" method="POST" class="form-grid"><input type="hidden" name="csrfToken" value="<%= csrfToken %>">
-          <div class="form-group"><label for="new-role-name">Nombre</label><input class="form-control" id="new-role-name" name="name" maxlength="100" required></div>
-          <div class="form-group"><label for="new-role-description">Descripción</label><input class="form-control" id="new-role-description" name="description" maxlength="255"></div>
-          <div class="form-group"><label for="new-role-class">Clasificación</label><select class="form-control" id="new-role-class" name="classification"><option value="ordinary">Ordinario</option><option value="privileged">Privilegiado (requiere aprobación secundaria en asignaciones)</option></select></div>
+          <div class="form-group"><div class="field"><label for="new-role-name">Nombre</label><input class="form-control" id="new-role-name" name="name" maxlength="100" required></div></div>
+          <div class="form-group"><div class="field"><label for="new-role-description">Descripción</label><input class="form-control" id="new-role-description" name="description" maxlength="255"></div></div>
+          <div class="form-group"><div class="field"><label for="new-role-class">Clasificación</label><select class="form-control" id="new-role-class" name="classification"><option value="ordinary">Ordinario</option><option value="privileged">Privilegiado (requiere aprobación secundaria en asignaciones)</option></select></div></div>
           <div class="form-group"><label><input type="checkbox" name="requiresScope" value="true" checked> Ámbito requerido</label></div>
           <div class="form-group"><label><input type="checkbox" name="allowOpenEndedAssignment" value="true"> Permitir vigencia indefinida</label></div>
-          <div class="form-group form-grid__full"><label for="new-role-reason">Motivo</label><textarea class="form-control" id="new-role-reason" name="reason" required maxlength="4000"></textarea></div>
+          <div class="form-group form-grid__full"><div class="field"><label for="new-role-reason">Motivo</label><textarea class="form-control" id="new-role-reason" name="reason" required maxlength="4000"></textarea></div></div>
           <button class="btn btn-primary" type="submit">Crear rol</button>
         </form>
       </details><% } %>
@@ -112,7 +106,7 @@
 
     <% if (capabilities['M01.permissions.read']) { %><section class="card" aria-labelledby="permission-catalog-title">
       <div class="page-heading"><h2 id="permission-catalog-title">Catálogo de permisos</h2></div>
-      <div class="table-wrap"><table><thead><tr><th>Código</th><th>Descripción</th><th>Estado</th><% if (capabilities['M01.permissions.manage']) { %><th>Cambiar</th><% } %></tr></thead><tbody>
+      <div class="table-wrap" role="region" aria-label="Administraci&#243;n de roles y permisos" tabindex="0"><table><thead><tr><th scope="col">Código</th><th scope="col">Descripción</th><th scope="col">Estado</th><% if (capabilities['M01.permissions.manage']) { %><th scope="col">Cambiar</th><% } %></tr></thead><tbody>
         <% permissions.forEach((permission) => { %><tr><td><code><%= permission.code %></code></td><td><%= permission.description ?? '' %></td><td><%= permission.active ? 'Activo' : 'Desactivado' %></td><% if (capabilities['M01.permissions.manage']) { %><td><form action="/roles/permisos/estado" method="POST"><input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="code" value="<%= permission.code %>"><input type="hidden" name="active" value="<%= permission.active ? 'false' : 'true' %>"><label for="permission-reason-<%= permission.id %>">Motivo</label><input class="form-control" id="permission-reason-<%= permission.id %>" name="reason" required maxlength="4000"><button class="btn btn-secondary" type="submit"><%= permission.active ? 'Desactivar' : 'Activar' %></button></form></td><% } %></tr><% }); %>
       </tbody></table></div>
       <p class="form-help">Desactivar un permiso retira su efecto para todos los roles. El registro y las asociaciones históricas se conservan.</p>

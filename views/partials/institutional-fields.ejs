@@ -1,0 +1,32 @@
+<% const d = draft || {}; const planKind = kind === 'plan'; %>
+<fieldset class="institutional-section form-grid__full">
+  <legend>Ficha institucional en borrador</legend>
+  <p class="form-help">Puedes guardar información incompleta. Esta ficha no aprueba el registro ni modifica sus resultados oficiales. Los campos de esta sección son opcionales.</p>
+  <input type="hidden" name="institucional[revision]" value="<%= d.revision ?? '' %>">
+  <div class="form-grid">
+  <% if (planKind) { %>
+    <div class="field"><label>Proceso institucional<select name="institucional[id_proceso]"><option value="">Sin seleccionar</option><% if (d.id_proceso && !(processes || []).some(p => String(p.id_proceso) === String(d.id_proceso))) { %><option selected value="<%= d.id_proceso %>">Proceso #<%= d.id_proceso %> (no disponible en el catálogo actual)</option><% } %><% (processes || []).forEach(p => { %><option value="<%= p.id_proceso %>" <%= String(d.id_proceso) === String(p.id_proceso) ? 'selected' : '' %>><%= p.nombre %></option><% }); %></select></label><small>Solo procesos del catálogo autorizado. Si está vacío, puedes continuar el borrador.</small></div>
+  <% } else { %>
+    <div class="field"><label>Prioridad<select name="institucional[prioridad]"><option value="">Sin definir</option><% ['alta','media','baja'].forEach(p => { %><option <%= d.prioridad === p ? 'selected' : '' %> value="<%= p %>"><%= p %></option><% }); %></select></label></div>
+    <% for (const [key,label] of [['id_objetivo','Objetivo específico'],['id_indicador','Indicador principal']]) { %>
+    <div class="field"><label><%= label %><select name="institucional[<%= key %>]" data-institution-link><option value="">Sin asociar</option><% (linkedPlans || []).forEach(p => { const list = key === 'id_objetivo' ? p.institucional?.objetivos ?? [] : p.institucional?.indicador ? [p.institucional.indicador] : []; list.forEach(item => { const id = item.id ?? item.id_indicador; %><option value="<%= id %>" data-plan="<%= p.id_plan %>" <%= String(d[key]) === String(id) ? 'selected' : '' %>><%= p.nombre %>: <%= item.descripcion ?? item.nombre ?? '#' + id %></option><% }); }); %><% if (d[key] && !(linkedPlans || []).some(p => key === 'id_objetivo' ? (p.institucional?.objetivos || []).some(o => String(o.id) === String(d[key])) : String(p.institucional?.indicador?.id_indicador) === String(d[key]))) { %><option selected value="<%= d[key] %>">Referencia #<%= d[key] %></option><% } %></select></label></div>
+    <% } %>
+  <% } %>
+  <% const fields = planKind ? [['problema','Problema o situación identificada'],['causas','Causas'],['consecuencias','Consecuencias'],['objetivo_general','Objetivo general'],['meta_descripcion','Meta / resultado esperado'],['meta_valor','Valor esperado','decimal'],['meta_unidad','Unidad de la meta',100],['responsable_principal','Responsable principal propuesto (distinto del creador)',150]] : [['nombre','Nombre de la actividad',150],['resultado_esperado','Resultado esperado'],['metodo_verificacion','Método de verificación'],['evidencias_esperadas','Evidencias esperadas'],['observaciones','Observaciones generales'],['instrucciones','Instrucciones']]; %>
+  <% fields.forEach(([key,label,limit]) => { const heading = { problema:'Diagnóstico', objetivo_general:'Propósito y meta', responsable_principal:'Responsabilidad', nombre:'Resultado y verificación', evidencias_esperadas:'Evidencias e instrucciones' }[key]; %><% if (heading) { %><h3 class="form-grid__full"><%= heading %></h3><% } %><div class="field"><label><%= label %><% if (!limit) { %><textarea name="institucional[<%= key %>]" rows="3" maxlength="10000"><%= d[key] ?? '' %></textarea><% } else { %><input name="institucional[<%= key %>]" maxlength="<%= limit === 'decimal' ? 20 : limit %>" <%- limit === 'decimal' ? 'inputmode="decimal"' : '' %> value="<%= d[key] ?? '' %>"><% } %></label></div><% }); %>
+  </div>
+  <% if (planKind) { %>
+  <p class="form-help">El responsable propuesto es información de formulación; no asigna permisos ni sustituye la designación institucional autorizada.</p>
+  <fieldset class="institutional-section" data-institution-collection><legend>Objetivos específicos</legend>
+    <% const objectives = d.objetivos?.length ? d.objetivos : [{}]; objectives.forEach(item => { %><div class="institutional-item"><input type="hidden" name="objective_id[]" value="<%= item.id ?? '' %>"><label>Descripción del objetivo<textarea name="objective_description[]" rows="2" maxlength="10000"><%= item.descripcion ?? '' %></textarea></label></div><% }); %>
+    <button type="button" class="btn btn-secondary" data-institution-add>Añadir objetivo</button>
+  </fieldset>
+  <fieldset class="institutional-section"><legend>Indicador principal</legend><p class="form-help">La fórmula se conserva como texto; no se ejecuta ni recalcula resultados. Nombre y descripción se completarán antes de la validación institucional.</p><div class="form-grid">
+  <% const indicator = d.indicador || {}; for (const [key,label] of [['nombre','Nombre'],['descripcion','Descripción'],['formula','Fórmula'],['unidad','Unidad'],['fuente','Fuente']]) { %><div class="field"><label><%= label %><textarea rows="2" name="institucional[indicador][<%= key %>]" maxlength="<%= key === 'nombre' ? 150 : key === 'unidad' ? 100 : 10000 %>"><%= indicator[key] ?? '' %></textarea></label></div><% } %>
+  </div></fieldset>
+  <% } else { %>
+  <fieldset class="institutional-section" data-institution-collection><legend>Recursos</legend><p class="form-help">Cantidad: hasta 4 decimales. Costo estimado: hasta 2 decimales, sin totalización automática. Usa punto decimal.</p>
+  <% const resources = d.recursos?.length ? d.recursos : [{}]; resources.forEach(item => { %><div class="institutional-item form-grid"><input type="hidden" name="resource_id[]" value="<%= item.id ?? '' %>"><label>Descripción<input name="resource_description[]" maxlength="255" value="<%= item.descripcion ?? '' %>"></label><label>Cantidad<input name="resource_quantity[]" inputmode="decimal" value="<%= item.cantidad ?? '' %>"></label><label>Costo estimado<input name="resource_cost[]" inputmode="decimal" value="<%= item.costo_estimado ?? '' %>"></label></div><% }); %>
+  <button type="button" class="btn btn-secondary" data-institution-add>Añadir recurso</button></fieldset>
+  <% } %>
+</fieldset>
