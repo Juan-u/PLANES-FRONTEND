@@ -3,6 +3,10 @@ import { readFile } from 'node:fs/promises';
 import { test } from 'node:test';
 import ejs from 'ejs';
 import { fileURLToPath } from 'node:url';
+import {
+  decisionReasonForDisplay, labelForDisplay, permissionDetailsForDisplay,
+  permissionLabelForDisplay, roleDescriptionForDisplay
+} from '../app/services/role-labels.js';
 
 const templateFiles = new Map();
 async function readView(url) { const source = await readFile(url, 'utf8'); templateFiles.set(source, fileURLToPath(url)); return source; }
@@ -12,19 +16,85 @@ test('role administration view renders modules, approvals, assignment controls a
   const template = await readView(new URL('../views/role-admin.ejs', import.meta.url), 'utf8');
   const html = renderView(template, {
     error: null, csrfToken: 'session-csrf', selectedUserId: '', assignments: [],
+    decisionReasonForDisplay, labelForDisplay, permissionDetailsForDisplay,
+    permissionLabelForDisplay, roleDescriptionForDisplay,
     capabilities: { 'M01.roles.read': true, 'M01.permissions.read': true, 'M01.requests.read': true, 'M01.assignments.read': true, 'M03.plans.read': true,
       'approve-role-change': true, 'revoke-role': true, 'assign-role': true, 'M01.roles.manage': true, 'M01.permissions.manage': true },
     requests: [{ id: 'request-id', action: 'assign', status: 'pending_approval', targetUserId: 8,
-      roleName: '<script>alert(1)</script>', reason: 'Business reason', expiresAt: '2026-11-01T00:00:00Z' }],
+      roleName: '<script>alert(1)</script>', reason: 'Business reason', expiresAt: '2026-11-01T00:00:00Z' },
+      { id: 'history-id', action: 'assign', status: 'approved', requestedBy: 8, decidedBy: 9,
+        decisionReason: 'Reviewed by a person — conservar este texto', reason: 'Original request reason' },
+      { id: 'visual-test-id', action: 'assign', status: 'approved', requestedBy: 8, decidedBy: 9,
+        decisionReason: 'Synthetic second approval for visual testing' },
+      { id: 'expired-id', action: 'assign', status: 'expired', requestedBy: 8, decidedBy: null,
+        decisionReason: 'approval_window_expired' }],
     roles: [{ id: 4, name: 'plan_author', description: 'Author', classification: 'ordinary',
       requiresScope: true, allowOpenEndedAssignment: false, permissions: [{ code: 'M03.plans.read', active: true }] }],
-    permissions: [{ id: 1, code: 'M03.plans.read', description: 'Read plans', active: true }]
+    permissions: [{ id: 1, code: 'M03.plans.read', description: 'Read plans', active: true },
+      { id: 2, code: 'M01.permissions.manage', description: 'Manage permissions', active: true },
+      { id: 3, code: 'approve-role-change', description: 'approve-role-change', active: true },
+      { id: 4, code: 'assign-role', description: 'assign-role', active: true }]
   });
   assert.match(html, /Roles y permisos/);
-  assert.match(html, /pending_approval|Asignar/);
+  assert.match(html, /Aprobado/);
+  assert.match(html, /Responsable de elaboración de planes/);
+  assert.match(html, /Consultar planes/);
+  assert.match(html, /Administrar permisos/);
+  assert.match(html, /Permite consultar planes de acción dentro del ámbito autorizado\./);
+  assert.match(html, /Aprobar cambios de roles/);
+  assert.match(html, /Permite aprobar o rechazar solicitudes de modificación de roles, conforme a las autorizaciones establecidas\./);
+  assert.match(html, /Permite asignar roles a los usuarios de acuerdo con las responsabilidades y autorizaciones establecidas\./);
+  assert.match(html, /popovertarget="permission-code-role-4-3"/);
+  assert.match(html, /id="permission-code-role-4-3" popover role="note"/);
+  assert.match(html, /popovertarget="permission-code-catalog-3"/);
+  assert.match(html, /id="permission-code-catalog-3" popover role="note"/);
+  assert.doesNotMatch(html, /<small>Código técnico:/);
+  assert.match(html, /value="M03\.plans\.read"/);
+  assert.match(html, /name="permissionCodes" value="approve-role-change"/);
+  assert.match(html, /name="permissionCodes" value="assign-role"/);
+  assert.match(html, /Código técnico:<\/strong> <code>M03\.plans\.read<\/code>/);
+  assert.match(html, /name="code" value="M03\.plans\.read"/);
+  assert.match(html, /name="code" value="approve-role-change"/);
+  assert.match(html, /Reviewed by a person — conservar este texto/);
+  assert.match(html, /Segunda aprobación simulada para pruebas visuales\./);
+  assert.doesNotMatch(html, /<td>Synthetic second approval for visual testing<\/td>/);
+  assert.match(html, /La solicitud venció porque terminó el plazo de aprobación\./);
   assert.match(html, /name="csrfToken" value="session-csrf"/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+});
+
+test('role labels localize known technical names while preserving unknown and free-text values', () => {
+  assert.equal(labelForDisplay('pending_approval'), 'Pendiente de aprobación');
+  assert.equal(labelForDisplay('assign-role'), 'Asignar roles');
+  assert.equal(labelForDisplay('approve-role-change'), 'Aprobar cambios de roles');
+  assert.equal(labelForDisplay('visual-followup-reviewer-aedfe07c'), 'Revisor de seguimiento visual');
+  assert.equal(labelForDisplay('Browser role read-only'), 'Rol de consulta');
+  assert.equal(roleDescriptionForDisplay('visual-followup-reviewer-aedfe07c', 'English description'),
+    'Revisión visual del seguimiento de planes de acción.');
+  assert.equal(roleDescriptionForDisplay('custom_role', 'Descripción escrita por una persona'),
+    'Descripción escrita por una persona');
+  assert.equal(permissionLabelForDisplay('M01.assignments.read'), 'Consultar asignaciones de roles');
+  assert.equal(permissionLabelForDisplay('M01.permissions.manage'), 'Administrar permisos');
+  assert.equal(permissionLabelForDisplay('M01.requests.read'), 'Consultar solicitudes de cambio');
+  assert.equal(permissionLabelForDisplay('M16.security.manage'), 'Administrar seguridad');
+  assert.deepEqual(permissionDetailsForDisplay('approve-role-change'), {
+    code: 'approve-role-change',
+    name: 'Aprobar cambios de roles',
+    description: 'Permite aprobar o rechazar solicitudes de modificación de roles, conforme a las autorizaciones establecidas.'
+  });
+  assert.equal(decisionReasonForDisplay('approval_window_expired'),
+    'La solicitud venció porque terminó el plazo de aprobación.');
+  assert.equal(decisionReasonForDisplay('Synthetic second approval for visual testing'),
+    'Segunda aprobación simulada para pruebas visuales.');
+  assert.equal(decisionReasonForDisplay('Free-form user reason in English'),
+    'Free-form user reason in English');
+  assert.equal(decisionReasonForDisplay(null), '—');
+  assert.deepEqual(permissionDetailsForDisplay('custom.permission'), {
+    code: 'custom.permission',
+    name: 'custom.permission',
+    description: 'No hay una descripción disponible para este permiso.'
+  });
 });
 
 test('role administration view omits unauthorized mutation controls', async () => {

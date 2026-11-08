@@ -3,6 +3,7 @@ import session from "express-session";
 import rutas from "./app/routes/routes.views.js";
 import {runtimePort} from './app/services/runtime-config.js';
 import {railwayConfiguration, persistentSessions, enforceHttps} from './app/services/railway-profile.js';
+import {decisionReasonForDisplay, labelForDisplay, permissionDetailsForDisplay, permissionLabelForDisplay, roleDescriptionForDisplay} from './app/services/role-labels.js';
 
 const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
@@ -28,11 +29,11 @@ if (railway) {
 app.set("view engine", "ejs");
 app.set("views", "./views");
 app.locals.timeZone = process.env.APP_TIME_ZONE || "America/Bogota";
-app.locals.labelForDisplay = (value) => ({
-    pending: "Pendiente", pending_approval: "Pendiente de aprobación", approved: "Aprobado", rejected: "Rechazado",
-    open: "Abierto", closed: "Cerrado", active: "Activo", scheduled: "Programado", revoked: "Revocado", expired: "Vencido",
-    privileged: "Privilegiado", ordinary: "Ordinario", system_administrator: "Administrador del sistema"
-}[String(value ?? "").toLowerCase()] || value || "Sin estado");
+app.locals.labelForDisplay = labelForDisplay;
+app.locals.decisionReasonForDisplay = decisionReasonForDisplay;
+app.locals.permissionDetailsForDisplay = permissionDetailsForDisplay;
+app.locals.permissionLabelForDisplay = permissionLabelForDisplay;
+app.locals.roleDescriptionForDisplay = roleDescriptionForDisplay;
 
 // Archivos estáticos (CSS, imágenes)
 app.use(express.static("public"));

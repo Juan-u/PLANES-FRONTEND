@@ -476,7 +476,7 @@ tbody tr:focus-within {
 }
 
 .permission-editor h3,
-.permission-editor > label,
+.permission-editor > .permission-option,
 .permission-editor > .form-help,
 .permission-editor > .form-control,
 .permission-editor > button { grid-column: 1 / -1; }
@@ -491,8 +491,38 @@ tbody tr:focus-within {
     overflow-wrap: anywhere;
 }
 
+.permission-option__content { flex: 1; min-width: 0; }
+.permission-option__content label { cursor: pointer; }
 .permission-option small { display: block; color: var(--color-muted); margin-top: 0.2rem; }
 .permission-option input { margin-top: 0.25rem; }
+.permission-code-trigger {
+    display: inline-grid;
+    flex: 0 0 auto;
+    width: 1.65rem;
+    height: 1.65rem;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    background: var(--color-surface);
+    color: var(--color-brand);
+    font: inherit;
+    line-height: 1;
+    cursor: pointer;
+}
+.permission-code-trigger:hover { background: var(--color-brand-tint); }
+.permission-code-trigger:focus-visible { outline: 3px solid var(--color-brand); outline-offset: 2px; }
+.permission-code-popover {
+    max-width: min(32rem, calc(100vw - 2rem));
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 0.6rem;
+    background: var(--color-surface);
+    color: var(--color-text);
+    box-shadow: 0 8px 24px rgb(15 23 42 / 18%);
+    overflow-wrap: anywhere;
+}
+.permission-code-popover::backdrop { background: transparent; }
 
 details { margin-top: 1rem; border-top: 1px solid var(--color-border); padding-top: 0.8rem; }
 details > summary { cursor: pointer; color: var(--color-brand); font-weight: 650; padding: 0.4rem 0; }
