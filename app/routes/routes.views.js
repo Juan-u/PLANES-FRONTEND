@@ -6,7 +6,7 @@ import {
     getLogin, postLogin,
     getMenu, getPlanes, postCrearPlan, postActualizarPlan, getActividades, getDetalleActividad, postCrearActividad, postActualizarActividad, getSeguimiento, postCrearPeriodo, postCerrarPeriodo, postCrearSeguimiento, postDecisionSeguimiento, postCargarEvidencia, getDescargarEvidencia, getInformes, getInformeCsv, logout,
     getRoleAdministration,
-    getWeather,
+    getWeather, getLoginWeather,
     postCreateRole, postRoleConfiguration, postRolePermissions, postPermissionState,
     postRoleAssignment, postRoleRevocation, postRoleDecision,
     getUsuarios,
@@ -23,6 +23,7 @@ const router = Router();
 // ============================================
 router.get("/", getLogin);
 router.post("/login", postLogin);
+router.get("/api/clima-publico", getLoginWeather);
 
 // ============================================
 // RUTAS PROTEGIDAS (requieren sesión)

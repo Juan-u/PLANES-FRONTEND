@@ -63,20 +63,20 @@
 
   const timeZone = body.dataset.timeZone || 'America/Bogota';
   const dateNode = document.querySelector('[data-current-date]');
-  const timeNode = document.querySelector('[data-current-time]');
-  const updateClock = () => {
+  const updateLocalDate = () => {
     const now = new Date();
     if (dateNode) {
-      dateNode.textContent = new Intl.DateTimeFormat('es-CO', { timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(now);
+      const formattedDate = new Intl.DateTimeFormat('es-CO', {
+        timeZone, weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      }).format(now);
+      dateNode.textContent = formattedDate.charAt(0).toLocaleUpperCase('es-CO') + formattedDate.slice(1);
       dateNode.dateTime = now.toISOString();
     }
-    if (timeNode) {
-      timeNode.textContent = new Intl.DateTimeFormat('es-CO', { timeZone, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(now);
-      timeNode.dateTime = now.toISOString();
-    }
   };
-  updateClock();
-  if (dateNode || timeNode) window.setInterval(updateClock, 1000);
+  if (dateNode) {
+    updateLocalDate();
+    window.setInterval(updateLocalDate, 60 * 1000);
+  }
 
   document.querySelectorAll('[data-password-toggle]').forEach((button) => {
     const input = document.getElementById(button.getAttribute('aria-controls'));
@@ -166,6 +166,50 @@
       loadWeather(city);
     });
     loadWeather(cityInput?.value?.trim());
+  }
+
+  const loginWeather = document.querySelector('[data-login-weather]');
+  if (loginWeather) {
+    const result = loginWeather.querySelector('[data-weather-result]');
+    const icon = loginWeather.querySelector('[data-weather-icon]');
+    const updated = loginWeather.querySelector('[data-weather-updated]');
+    const refreshWeather = async () => {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), 5000);
+      loginWeather.setAttribute('aria-busy', 'true');
+      if (result) result.textContent = 'Consultando el clima…';
+      if (updated) updated.textContent = '';
+      try {
+        const response = await fetch('/api/clima-publico', {
+          headers: { Accept: 'application/json' },
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        if (!response.ok) throw new Error('WEATHER_UNAVAILABLE');
+        const data = await response.json();
+        if (!data.available || !Number.isFinite(data.temperature) ||
+            typeof data.condition !== 'string' || typeof data.icon !== 'string' ||
+            typeof data.updatedAt !== 'string' || !Number.isFinite(Date.parse(data.updatedAt))) {
+          throw new Error('WEATHER_UNAVAILABLE');
+        }
+        if (icon) icon.textContent = data.icon;
+        if (result) result.textContent = `${data.temperature} °C · ${data.condition}`;
+        if (updated) {
+          const time = new Intl.DateTimeFormat('es-CO', {
+            timeZone, hour: '2-digit', minute: '2-digit'
+          }).format(new Date(data.updatedAt));
+          updated.textContent = `Actualizado ${time}`;
+        }
+      } catch {
+        if (icon) icon.textContent = '—';
+        if (result) result.textContent = 'Clima temporalmente no disponible.';
+      } finally {
+        loginWeather.setAttribute('aria-busy', 'false');
+        window.clearTimeout(timeout);
+      }
+    };
+    void refreshWeather();
+    window.setInterval(refreshWeather, 15 * 60 * 1000);
   }
 })();
 // Institutional draft collections: additions only; existing records are never deleted here.

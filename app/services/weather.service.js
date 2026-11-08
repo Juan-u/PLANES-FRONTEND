@@ -16,11 +16,11 @@ function weatherSymbol(code) {
   return '☁';
 }
 
-export function createWeatherService({ apiKey, fetchImpl = globalThis.fetch, now = () => Date.now(), defaultCity = 'Villavicencio, Meta, Colombia', latitude = '-4.142', longitude = '-73.626', timeoutMs = 5000 } = {}) {
+export function createWeatherService({ fetchImpl = globalThis.fetch, now = () => Date.now(), defaultCity = 'Villavicencio, Meta, Colombia', latitude = '-4.142', longitude = '-73.626', timeoutMs = 5000 } = {}) {
   const cache = new Map();
   return { async current(city = defaultCity) {
     const requestedCity = typeof city === 'string' ? city.trim().slice(0, 100) : '';
-    if (!apiKey || typeof fetchImpl !== 'function') return { available: false, city: requestedCity || defaultCity };
+    if (typeof fetchImpl !== 'function') return { available: false, city: requestedCity || defaultCity };
     const cacheKey = (requestedCity || defaultCity).toLocaleLowerCase('es-CO');
     const cached = cache.get(cacheKey);
     if (cached && cached.expiresAt > now()) return cached.value;
@@ -29,16 +29,16 @@ export function createWeatherService({ apiKey, fetchImpl = globalThis.fetch, now
     try {
       let coords = { name: defaultCity.split(',')[0], latitude: Number(latitude), longitude: Number(longitude), admin1: 'Meta' };
       if (requestedCity && cacheKey !== defaultCity.toLocaleLowerCase('es-CO')) {
-        const geoUrl = new URL('https://customer-api.open-meteo.com/v1/search');
-        geoUrl.search = new URLSearchParams({ name: requestedCity, count: '1', language: 'es', format: 'json', apikey: apiKey }).toString();
+        const geoUrl = new URL('https://geocoding-api.open-meteo.com/v1/search');
+        geoUrl.search = new URLSearchParams({ name: requestedCity, count: '1', language: 'es', format: 'json' }).toString();
         const geoResponse = await fetchImpl(geoUrl, { signal: controller.signal });
         if (!geoResponse.ok) return { available: false, city: requestedCity };
         const location = (await geoResponse.json()).results?.[0];
         if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return { available: false, city: requestedCity };
         coords = location;
       }
-      const url = new URL('https://customer-api.open-meteo.com/v1/forecast');
-      url.search = new URLSearchParams({ latitude: String(coords.latitude), longitude: String(coords.longitude), current: 'temperature_2m,weather_code', timezone: 'America/Bogota', temperature_unit: 'celsius', apikey: apiKey }).toString();
+      const url = new URL('https://api.open-meteo.com/v1/forecast');
+      url.search = new URLSearchParams({ latitude: String(coords.latitude), longitude: String(coords.longitude), current: 'temperature_2m,weather_code', timezone: 'America/Bogota', temperature_unit: 'celsius' }).toString();
       const response = await fetchImpl(url, { signal: controller.signal });
       if (!response.ok) return { available: false, city: requestedCity || defaultCity };
       const payload = await response.json();

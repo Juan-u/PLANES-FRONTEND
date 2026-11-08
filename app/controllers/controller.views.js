@@ -7,7 +7,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { createWeatherService } from "../services/weather.service.js";
 
 const API_URL = backendApiUrl();
-const weatherService = createWeatherService({ apiKey: process.env.OPEN_METEO_API_KEY, fetchImpl: fetch, defaultCity: process.env.WEATHER_CITY || "Villavicencio, Meta, Colombia", latitude: process.env.WEATHER_LATITUDE || "-4.142", longitude: process.env.WEATHER_LONGITUDE || "-73.626" });
+const weatherService = createWeatherService({ fetchImpl: fetch, defaultCity: process.env.WEATHER_CITY || "Villavicencio, Meta, Colombia", latitude: process.env.WEATHER_LATITUDE || "-4.142", longitude: process.env.WEATHER_LONGITUDE || "-73.626" });
 
 function navigationFor(permissions = []) {
     const values = new Set(permissions);
@@ -20,6 +20,10 @@ export async function getWeather(req, res) {
     const city = typeof req.query?.city === "string" ? req.query.city : "";
     if (city.length > 100 || /[<>\u0000-\u001f]/.test(city)) return res.status(400).json({ available: false });
     return res.json(await weatherService.current(city));
+}
+
+export async function getLoginWeather(_req, res) {
+    return res.json(await weatherService.current("Villavicencio, Meta, Colombia"));
 }
 
 export function convertCsvToExcelSemicolon(csv) {
