@@ -8,6 +8,27 @@ test('cloud accepts explicit private endpoints and HTTPS origin', () => assert.e
 test('cloud rejects public backend, local database and weak secret', () => {
   for (const override of [{BACKEND_API_URL: 'https://public.example/api'}, {SESSION_DB_HOST: '127.0.0.1'}, {SESSION_DB_NAME: 'planes_accion_test'}, {SESSION_DB_USER: 'root'}, {SESSION_SECRET: 'x'.repeat(64)}, {PUBLIC_ORIGIN: 'http://example.invalid'}, {PUBLIC_ORIGIN: 'https://example.invalid/path'}, {DEPLOYMENT_PROFILE: 'unknown'}]) assert.throws(() => railwayConfiguration({...valid(), ...override}));
 });
+test('production profile pins sessions to the exact Railway project, environment and MySQL destination', () => {
+  const production = {
+    DEPLOYMENT_PROFILE: 'railway-production', NODE_ENV: 'production',
+    RAILWAY_PROJECT_NAME: 'cortesía-gracia', RAILWAY_ENVIRONMENT_NAME: 'production',
+    PRODUCTION_MYSQL_SERVICE_NAME: 'MySQL-EZwX',
+    PRODUCTION_DB_HOST: 'mysql-production.railway.internal', PRODUCTION_DB_NAME: 'planes_accion_production',
+    BACKEND_API_URL: 'http://backend.railway.internal:3000/api',
+    PUBLIC_ORIGIN: 'https://planes.example.invalid',
+    SESSION_SECRET: randomBytes(48).toString('base64url'),
+    SESSION_DB_HOST: 'mysql-production.railway.internal', SESSION_DB_PORT: '3306',
+    SESSION_DB_NAME: 'planes_accion_production', SESSION_DB_USER: 'planes_web_sessions',
+    SESSION_DB_PASSWORD: 'synthetic-only'
+  };
+  assert.equal(railwayConfiguration(production).database.database, 'planes_accion_production');
+  for (const override of [
+    {RAILWAY_PROJECT_NAME: 'other'}, {RAILWAY_ENVIRONMENT_NAME: 'private-test'},
+    {PRODUCTION_MYSQL_SERVICE_NAME: 'other'}, {SESSION_DB_HOST: 'another.railway.internal'},
+    {SESSION_DB_NAME: 'other_database'}, {PRODUCTION_DB_HOST: '127.0.0.1'},
+    {PRODUCTION_DB_NAME: 'REPLACE_WITH_THE_EXACT_DATABASE_NAME_FROM_RAILWAY', SESSION_DB_NAME: 'REPLACE_WITH_THE_EXACT_DATABASE_NAME_FROM_RAILWAY'}
+  ]) assert.throws(() => railwayConfiguration({...production, ...override}));
+});
 test('HTTPS redirect ignores untrusted Host and rejects insecure writes', () => {
   const middleware = enforceHttps('https://trusted.example'); let result;
   const res = {redirect: (...args) => {result = args;}, sendStatus: n => {result = n;}, setHeader: () => {}};
