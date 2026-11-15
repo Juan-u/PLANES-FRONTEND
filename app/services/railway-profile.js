@@ -1,7 +1,7 @@
 import session from 'express-session';
 import mysqlSession from 'express-mysql-session';
 
-const PRODUCTION_PROJECT = 'cortesía-gracia';
+const PRODUCTION_PROJECT = 'courteous-grace';
 const PRODUCTION_ENVIRONMENT = 'production';
 const PRODUCTION_MYSQL_SERVICE = 'MySQL-EZwX';
 const PRODUCTION_DATABASE_NAME = /^[a-zA-Z0-9_]{1,64}$/;

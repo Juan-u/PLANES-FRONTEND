@@ -11,7 +11,7 @@ test('cloud rejects public backend, local database and weak secret', () => {
 test('production profile pins sessions to the exact Railway project, environment and MySQL destination', () => {
   const production = {
     DEPLOYMENT_PROFILE: 'railway-production', NODE_ENV: 'production',
-    RAILWAY_PROJECT_NAME: 'cortesía-gracia', RAILWAY_ENVIRONMENT_NAME: 'production',
+    RAILWAY_PROJECT_NAME: 'courteous-grace', RAILWAY_ENVIRONMENT_NAME: 'production',
     PRODUCTION_MYSQL_SERVICE_NAME: 'MySQL-EZwX',
     PRODUCTION_DB_HOST: 'mysql-production.railway.internal', PRODUCTION_DB_NAME: 'planes_accion_production',
     BACKEND_API_URL: 'http://backend.railway.internal:3000/api',
