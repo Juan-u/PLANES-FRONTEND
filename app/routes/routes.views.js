@@ -5,7 +5,8 @@ import { raw, Router } from "express";
 import { 
     getLogin, postLogin,
     getMenu, getPlanes, postCrearPlan, postActualizarPlan, getActividades, getDetalleActividad, postCrearActividad, postActualizarActividad, getSeguimiento, postCrearPeriodo, postCerrarPeriodo, postCrearSeguimiento, postDecisionSeguimiento, postCargarEvidencia, getDescargarEvidencia, getInformes, getInformeCsv, logout,
-    getRoleAdministration,
+    getRoleAdministration, getAssignableScopeResources, postEnableScopeResource,
+    postInitialScopeAuthorityRequest, postInitialScopeAuthorityDecision,
     getWeather, getLoginWeather,
     postCreateRole, postRoleConfiguration, postRolePermissions, postPermissionState,
     postRoleAssignment, postRoleRevocation, postRoleDecision,
@@ -61,6 +62,10 @@ router.post('/control-interno/actuaciones/:action',verificarSesion,postInternalC
 router.get("/informes/calificaciones.csv", verificarSesion, getInformeCsv);
 router.get("/logout", logout);
 router.get("/roles", verificarSesion, getRoleAdministration);
+router.get("/roles/asignacion-recursos", verificarSesion, getAssignableScopeResources);
+router.post("/roles/ambitos/recursos", verificarSesion, postEnableScopeResource);
+router.post("/roles/autoridad-inicial/solicitudes", verificarSesion, postInitialScopeAuthorityRequest);
+router.post("/roles/autoridad-inicial/decision", verificarSesion, postInitialScopeAuthorityDecision);
 router.post("/roles", verificarSesion, postCreateRole);
 router.post("/roles/configuracion", verificarSesion, postRoleConfiguration);
 router.post("/roles/permisos", verificarSesion, postRolePermissions);

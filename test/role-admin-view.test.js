@@ -30,6 +30,8 @@ test('role administration view renders modules, approvals, assignment controls a
         decisionReason: 'approval_window_expired' }],
     roles: [{ id: 4, name: 'plan_author', description: 'Author', classification: 'ordinary',
       requiresScope: true, allowOpenEndedAssignment: false, permissions: [{ code: 'M03.plans.read', active: true }] }],
+    scopeResources: [{type: 'plan', id: 1, name: 'Plan institucional'}],
+    authorityRequests: [],
     permissions: [{ id: 1, code: 'M03.plans.read', description: 'Read plans', active: true },
       { id: 2, code: 'M01.permissions.manage', description: 'Manage permissions', active: true },
       { id: 3, code: 'approve-role-change', description: 'approve-role-change', active: true },
@@ -60,6 +62,9 @@ test('role administration view renders modules, approvals, assignment controls a
   assert.doesNotMatch(html, /<td>Synthetic second approval for visual testing<\/td>/);
   assert.match(html, /La solicitud venció porque terminó el plazo de aprobación\./);
   assert.match(html, /name="csrfToken" value="session-csrf"/);
+  assert.match(html, /Autoridad institucional inicial/);
+  assert.match(html, /Referencia del acto institucional/);
+  assert.match(html, /action="\/roles\/autoridad-inicial\/solicitudes"/);
   assert.doesNotMatch(html, /<script>alert\(1\)<\/script>/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
 });
@@ -78,6 +83,12 @@ test('role labels localize known technical names while preserving unknown and fr
   assert.equal(permissionLabelForDisplay('M01.permissions.manage'), 'Administrar permisos');
   assert.equal(permissionLabelForDisplay('M01.requests.read'), 'Consultar solicitudes de cambio');
   assert.equal(permissionLabelForDisplay('M16.security.manage'), 'Administrar seguridad');
+  assert.equal(permissionLabelForDisplay('M01.roles.manage_scope'), 'Gestionar roles en un ámbito institucional');
+  assert.deepEqual(permissionDetailsForDisplay('M01.roles.manage_scope'), {
+    code: 'M01.roles.manage_scope',
+    name: 'Gestionar roles en un ámbito institucional',
+    description: 'Permite gestionar asignaciones únicamente dentro del ámbito institucional autorizado; no concede administración técnica global.'
+  });
   assert.deepEqual(permissionDetailsForDisplay('approve-role-change'), {
     code: 'approve-role-change',
     name: 'Aprobar cambios de roles',
@@ -109,6 +120,25 @@ test('role administration view omits unauthorized mutation controls', async () =
   assert.doesNotMatch(html, /action="\/roles\/revocaciones"/);
   assert.doesNotMatch(html, /action="\/roles\/solicitudes\/decision"/);
   assert.doesNotMatch(html, /action="\/roles\/permisos"/);
+  assert.doesNotMatch(html, /action="\/roles\/configuracion"/);
+  assert.doesNotMatch(html, /action="\/roles\/autoridad-inicial\/solicitudes"/);
+  assert.doesNotMatch(html, /action="\/roles\/autoridad-inicial\/decision"/);
+});
+
+test('scope authority role sees the catalog and scoped assignment form but not the bootstrap ceremony', async () => {
+  const template = await readView(new URL('../views/role-admin.ejs', import.meta.url), 'utf8');
+  const html = renderView(template, {
+    error: null, csrfToken: 'csrf', selectedUserId: '', assignments: [], requests: [],
+    authorityRequests: [], scopeResources: [],
+    roles: [{id: 7, name: 'collaborator', requiresScope: true, permissions: []},
+      {id: 9, name: 'scope_authority_manager', requiresScope: true, permissions: []}],
+    permissions: [],
+    capabilities: {'M01.roles.manage_scope': true, 'assign-role': true}
+  });
+  assert.match(html, /Asignaciones en ámbitos autorizados/);
+  assert.match(html, /value="7"/);
+  assert.doesNotMatch(html, /value="9"/);
+  assert.doesNotMatch(html, /action="\/roles\/autoridad-inicial\/solicitudes"/);
   assert.doesNotMatch(html, /action="\/roles\/configuracion"/);
 });
 

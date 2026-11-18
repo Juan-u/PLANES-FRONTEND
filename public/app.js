@@ -129,6 +129,81 @@
     });
   });
 
+  document.querySelectorAll('form[data-role-assignment-form]').forEach((form) => {
+    const user = form.querySelector('[data-scope-target]');
+    const role = form.querySelector('[data-scope-role]');
+    const resource = form.querySelector('[data-scope-resource]');
+    const status = form.querySelector('[data-scope-status]');
+    if (!user || !role || !resource || !status) return;
+    let requestNumber = 0;
+    const setOptions = (items, prompt) => {
+      resource.replaceChildren(new Option(prompt, ''));
+      for (const item of items) {
+        const label = item.type === 'plan'
+          ? `Plan ${item.id} — ${item.name}`
+          : `Actividad ${item.id} — ${item.name} (Plan ${item.planId}: ${item.planName})`;
+        resource.add(new Option(label, `${item.type}:${item.id}`));
+      }
+    };
+    const loadResources = async () => {
+      const requestId = ++requestNumber;
+      const selectedRole = role.selectedOptions[0];
+      const targetUserId = user.value.trim();
+      const roleId = role.value;
+      const requiresScope = selectedRole?.dataset.requiresScope === 'true';
+      resource.required = requiresScope;
+      resource.disabled = true;
+      if (!roleId) {
+        setOptions([], 'Selecciona primero un rol');
+        status.textContent = 'Selecciona el rol que deseas asignar.';
+        return;
+      }
+      if (!requiresScope) {
+        setOptions([], 'Sin ámbito (rol global)');
+        status.textContent = 'Este rol no requiere un ámbito institucional.';
+        return;
+      }
+      if (!/^[1-9]\d*$/.test(targetUserId) || !roleId) {
+        setOptions([], 'Selecciona primero usuario y rol');
+        status.textContent = 'Selecciona un usuario y un rol para consultar los recursos autorizados.';
+        return;
+      }
+      setOptions([], 'Cargando recursos autorizados…');
+      status.textContent = 'Consultando los recursos para los que tienes autorización efectiva.';
+      try {
+        const query = new URLSearchParams({ targetUserId, roleId });
+        const response = await fetch(`/roles/asignacion-recursos?${query}`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin'
+        });
+        if (requestId !== requestNumber) return;
+        if (!response.ok) throw new Error('No fue posible consultar los recursos autorizados.');
+        const data = await response.json();
+        const resources = Array.isArray(data.resources) ? data.resources : [];
+        setOptions(resources, resources.length ? 'Selecciona un plan o actividad' : 'No hay recursos disponibles');
+        resource.disabled = resources.length === 0;
+        status.textContent = resources.length
+          ? 'Solo se muestran recursos donde tu autoridad para asignar el rol está vigente.'
+          : 'No tienes autoridad efectiva para asignar este rol en ningún recurso disponible.';
+      } catch (error) {
+        if (requestId !== requestNumber) return;
+        setOptions([], 'Recursos no disponibles');
+        status.textContent = error instanceof Error ? error.message : 'No fue posible consultar los recursos autorizados.';
+      }
+    };
+    user.addEventListener('change', loadResources);
+    user.addEventListener('blur', loadResources);
+    role.addEventListener('change', loadResources);
+    form.addEventListener('submit', (event) => {
+      if (resource.required && (!resource.value || resource.disabled)) {
+        event.preventDefault();
+        status.textContent = 'Selecciona un recurso autorizado antes de enviar la asignación.';
+        resource.focus();
+      }
+    });
+    loadResources();
+  });
+
   document.querySelectorAll('form[data-confirm]').forEach((form) => {
     form.addEventListener('submit', (event) => {
       const message = form.dataset.confirm || '¿Confirmas esta operación?';

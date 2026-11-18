@@ -17,7 +17,8 @@ const DISPLAY_LABELS = Object.freeze({
   reject: 'Rechazar',
   'assign-role': 'Asignar roles',
   'revoke-role': 'Revocar roles',
-  'approve-role-change': 'Aprobar cambios de roles'
+  'approve-role-change': 'Aprobar cambios de roles',
+  'M01.roles.manage_scope': 'Gestionar roles en un ámbito institucional'
 });
 
 const ROLE_LABELS = Object.freeze({
@@ -29,6 +30,7 @@ const ROLE_LABELS = Object.freeze({
   activity_responsible: 'Responsable de actividades',
   collaborator: 'Colaborador',
   auditor: 'Auditor',
+  scope_authority_manager: 'Gestor institucional de roles',
   'visual-followup-reviewer-aedfe07c': 'Revisor de seguimiento visual'
 });
 
@@ -41,6 +43,7 @@ const ROLE_DESCRIPTIONS = Object.freeze({
   activity_responsible: 'Responsabilidad de actividades asignadas.',
   collaborator: 'Colaboración en actividades asignadas.',
   auditor: 'Consulta de trazabilidad y reportes.',
+  scope_authority_manager: 'Gestión de asignaciones únicamente dentro del ámbito institucional autorizado.',
   'visual-followup-reviewer-aedfe07c': 'Revisión visual del seguimiento de planes de acción.'
 });
 
@@ -153,6 +156,13 @@ export function permissionLabelForDisplay(code, description) {
 
 export function permissionDetailsForDisplay(code) {
   const technicalCode = String(code ?? '');
+  if (technicalCode === 'M01.roles.manage_scope') {
+    return Object.freeze({
+      code: technicalCode,
+      name: 'Gestionar roles en un ámbito institucional',
+      description: 'Permite gestionar asignaciones únicamente dentro del ámbito institucional autorizado; no concede administración técnica global.'
+    });
+  }
   if (ROLE_OPERATION_DETAILS[technicalCode]) {
     return Object.freeze({ code: technicalCode, ...ROLE_OPERATION_DETAILS[technicalCode] });
   }

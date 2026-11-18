@@ -40,6 +40,47 @@
       </tbody></table></div></details>
     </section><% } %>
 
+    <% if (capabilities['M01.roles.manage']) { %><section class="card" aria-labelledby="initial-authority-title">
+      <div class="page-heading"><h2 id="initial-authority-title">Autoridad institucional inicial</h2></div>
+      <p class="form-help">La autoridad técnica global no concede autoridad institucional. Una designación requiere referencia institucional verificable y aprobación de un segundo administrador; este formulario no selecciona titulares automáticamente.</p>
+      <% const availablePlans = (typeof scopeResources !== 'undefined' ? scopeResources : []).filter((resource) => resource.type === 'plan'); %>
+      <details><summary>Registrar una nominación formal</summary>
+        <form action="/roles/autoridad-inicial/solicitudes" method="POST" class="form-grid">
+          <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+          <div class="form-group"><div class="field"><label for="authority-target-user">ID del titular designado</label><input class="form-control" id="authority-target-user" name="targetUserId" inputmode="numeric" pattern="[1-9][0-9]*" required></div></div>
+          <div class="form-group"><div class="field"><label for="authority-plan">Plan</label><select class="form-control" id="authority-plan" name="planId" required><option value="">Selecciona un plan</option><% availablePlans.forEach((plan) => { %><option value="<%= plan.id %>">Plan <%= plan.id %> — <%= plan.name %></option><% }); %></select></div></div>
+          <div class="form-group"><div class="field"><label for="authority-reference">Referencia del acto institucional</label><input class="form-control" id="authority-reference" name="institutionalReference" required maxlength="255"></div></div>
+          <div class="form-group"><div class="field"><label for="authority-valid-from">Inicio (ISO 8601 con zona horaria, opcional)</label><input class="form-control" id="authority-valid-from" name="validFrom" placeholder="2026-11-18T09:00:00Z"></div></div>
+          <div class="form-group"><div class="field"><label for="authority-valid-until">Vencimiento (ISO 8601 con zona horaria)</label><input class="form-control" id="authority-valid-until" name="validUntil" required placeholder="2027-11-18T09:00:00Z"></div></div>
+          <div class="form-group form-grid__full"><div class="field"><label for="authority-reason">Motivo de la nominación</label><textarea class="form-control" id="authority-reason" name="reason" required maxlength="4000"></textarea></div></div>
+          <button class="btn btn-primary" type="submit">Registrar nominación pendiente</button>
+        </form>
+      </details>
+      <% const authorityQueue = typeof authorityRequests !== 'undefined' ? authorityRequests : []; %>
+      <% const pendingAuthority = authorityQueue.filter((request) => request.status === 'pending'); %>
+      <% if (pendingAuthority.length) { %>
+        <h3>Pendientes de segunda aprobación</h3>
+        <% pendingAuthority.forEach((request) => { %><article class="card" aria-label="Nominación institucional pendiente">
+          <p><strong><%= request.targetName %> (ID <%= request.targetUserId %>)</strong> — Plan <%= request.planId %>: <%= request.planName %></p>
+          <p>Referencia institucional: <code><%= request.institutionalReference %></code></p>
+          <p>Solicitada por <%= request.requesterName %> (ID <%= request.requestedBy %>); vigencia <%= request.validFrom %> a <%= request.validUntil %>.</p>
+          <% ['approve','reject'].forEach((decision) => { %><form action="/roles/autoridad-inicial/decision" method="POST" class="form-grid">
+            <input type="hidden" name="csrfToken" value="<%= csrfToken %>"><input type="hidden" name="requestId" value="<%= request.id %>"><input type="hidden" name="decision" value="<%= decision %>">
+            <div class="form-group"><div class="field"><label for="authority-ref-<%= decision %>-<%= request.id %>">Confirma la referencia institucional</label><input class="form-control" id="authority-ref-<%= decision %>-<%= request.id %>" name="institutionalReference" required maxlength="255"></div></div>
+            <div class="form-group"><div class="field"><label for="authority-decision-reason-<%= decision %>-<%= request.id %>">Motivo de <%= decision === 'approve' ? 'aprobación' : 'rechazo' %></label><input class="form-control" id="authority-decision-reason-<%= decision %>-<%= request.id %>" name="reason" required maxlength="4000"></div></div>
+            <button class="btn <%= decision === 'approve' ? 'btn-primary' : 'btn-danger' %>" type="submit"><%= decision === 'approve' ? 'Aprobar nominación' : 'Rechazar nominación' %></button>
+          </form><% }); %>
+        </article><% }); %>
+      <% } else { %><p class="empty-state">No hay nominaciones pendientes.</p><% } %>
+      <details><summary>Historial de designaciones iniciales</summary>
+        <% if (authorityQueue.some((request) => request.status !== 'pending')) { %>
+          <div class="table-wrap" role="region" aria-label="Historial de autoridad institucional" tabindex="0"><table><thead><tr><th>Titular</th><th>Plan</th><th>Referencia</th><th>Estado</th><th>Decisor</th><th>Motivo de decisión</th><th>Asignación</th></tr></thead><tbody>
+            <% authorityQueue.filter((request) => request.status !== 'pending').forEach((request) => { %><tr><td><%= request.targetName %> (ID <%= request.targetUserId %>)</td><td>Plan <%= request.planId %> — <%= request.planName %></td><td><%= request.institutionalReference %></td><td><%= displayLabel(request.status) %></td><td><%= request.deciderName ?? '—' %></td><td><%= decisionReason(request.decisionReason) %></td><td><%= request.assignmentId ?? '—' %></td></tr><% }); %>
+          </tbody></table></div>
+        <% } else { %><p class="empty-state">Todavía no hay decisiones registradas.</p><% } %>
+      </details>
+    </section><% } %>
+
     <% if (capabilities['M01.assignments.read']) { %><section class="card" aria-labelledby="assignments-title">
       <div class="page-heading"><h2 id="assignments-title">Asignaciones</h2></div>
       <form action="/roles" method="GET" class="form-actions">
@@ -53,22 +94,26 @@
           </td></tr><% }); %>
         </tbody></table></div><% } else { %><p class="empty-state">No se encontraron asignaciones.</p><% } %>
       <% } %>
-      <% if (capabilities['assign-role']) { %><details><summary>Solicitar una asignación</summary>
-        <form action="/roles/asignaciones" method="POST" class="form-grid">
+    </section><% } %>
+
+    <% if (capabilities['assign-role']) { %><section class="card" aria-labelledby="institutional-assignment-title">
+      <div class="page-heading"><h2 id="institutional-assignment-title">Asignaciones en ámbitos autorizados</h2></div>
+      <p class="form-help">Cada rol debe estar habilitado explícitamente para un recurso y el operador debe tener autoridad vigente en ese mismo ámbito. El rol de autoridad institucional inicial no puede asignarse desde este formulario.</p>
+      <details open><summary>Solicitar una asignación</summary>
+        <form action="/roles/asignaciones" method="POST" class="form-grid" data-role-assignment-form>
           <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
-          <div class="form-group"><div class="field"><label for="target-user">ID de usuario</label><input class="form-control" id="target-user" name="targetUserId" inputmode="numeric" required></div></div>
-          <div class="form-group"><div class="field"><label for="target-role">Rol</label><select class="form-control" id="target-role" name="roleId" required><option value="">Selecciona un rol</option><% roles.forEach((role) => { %><option value="<%= role.id %>"><%= displayLabel(role.name) %></option><% }); %></select></div></div>
-          <div class="form-group"><div class="field"><label for="scope-kind">Tipo exacto del ámbito</label><select class="form-control" id="scope-kind" name="scopeKind"><option value="string">Texto</option><option value="number">Número</option></select></div></div>
-          <div class="form-group"><div class="field"><label for="scope-ref">Referencia de ámbito</label><input class="form-control" id="scope-ref" name="scopeRef" placeholder="Déjalo vacío solo para roles globales"></div></div>
-          <div class="form-group"><div class="field"><label for="valid-from">Inicio (ISO 8601 con zona horaria, opcional)</label><input class="form-control" id="valid-from" name="validFrom" placeholder="2026-11-01T09:00:00Z"></div></div>
-          <div class="form-group"><div class="field"><label for="valid-until">Fin (ISO 8601 con zona horaria, opcional según configuración)</label><input class="form-control" id="valid-until" name="validUntil" placeholder="2027-11-01T09:00:00Z"></div></div>
+          <div class="form-group"><div class="field"><label for="target-user">ID de usuario</label><input class="form-control" id="target-user" name="targetUserId" inputmode="numeric" pattern="[1-9][0-9]*" required data-scope-target></div></div>
+          <div class="form-group"><div class="field"><label for="target-role">Rol</label><select class="form-control" id="target-role" name="roleId" required data-scope-role><option value="">Selecciona un rol</option><% roles.filter((role) => role.name !== 'scope_authority_manager').forEach((role) => { %><option value="<%= role.id %>" data-requires-scope="<%= role.requiresScope ? 'true' : 'false' %>"><%= displayLabel(role.name) %></option><% }); %></select></div></div>
+          <div class="form-group"><div class="field"><label for="scope-resource">Recurso institucional</label><select class="form-control" id="scope-resource" name="scopeResourceKey" data-scope-resource disabled><option value="">Selecciona primero usuario y rol</option></select><small class="form-help" data-scope-status role="status">Solo aparecerán recursos para los que tienes autorización efectiva.</small></div></div>
+          <div class="form-group"><div class="field"><label for="valid-from">Inicio (ISO 8601 con zona horaria, opcional)</label><input class="form-control" id="valid-from" name="validFrom" placeholder="2026-11-18T09:00:00Z"></div></div>
+          <div class="form-group"><div class="field"><label for="valid-until">Fin (ISO 8601 con zona horaria, opcional según configuración)</label><input class="form-control" id="valid-until" name="validUntil" placeholder="2027-11-18T09:00:00Z"></div></div>
           <div class="form-group form-grid__full"><div class="field"><label for="assignment-reason">Motivo</label><textarea class="form-control" id="assignment-reason" name="reason" required maxlength="4000"></textarea></div></div>
           <button class="btn btn-primary" type="submit">Enviar asignación</button>
         </form>
-      </details><% } %>
+      </details>
     </section><% } %>
 
-    <% if (capabilities['M01.roles.read']) { %><section class="card" aria-labelledby="catalog-title">
+    <% if (capabilities['M01.roles.read'] || capabilities['M01.roles.manage_scope']) { %><section class="card" aria-labelledby="catalog-title">
       <div class="page-heading"><h2 id="catalog-title">Catálogo de roles</h2></div>
       <div class="table-wrap" role="region" aria-label="Administraci&#243;n de roles y permisos" tabindex="0"><table><thead><tr><th scope="col">Rol</th><th scope="col">Clasificación</th><th scope="col">Ámbito obligatorio</th><th scope="col">Vigencia indefinida</th><th scope="col">Permisos activos</th><th scope="col">Configuración</th></tr></thead><tbody>
         <% roles.forEach((role) => { %><tr><td><strong><%= displayLabel(role.name) %></strong><br><%= roleDescription(role) %></td><td><%= displayLabel(role.classification ?? 'Sin configurar') %></td><td><%= role.requiresScope ? 'Sí' : 'No' %></td><td><%= role.allowOpenEndedAssignment ? 'Sí' : 'No' %></td><td><%= role.permissions.filter((permission) => permission.active).length %></td><td>
@@ -81,6 +126,18 @@
           </form><% } else { %><span>Solo lectura</span><% } %>
         </td></tr><% }); %>
       </tbody></table></div>
+
+      <% if (capabilities['M01.roles.manage']) { %><details><summary>Habilitar ámbitos tipados por recurso</summary>
+        <p class="form-help">Esta operación vincula explícitamente un recurso a un rol y queda auditada. No otorga al operador autoridad para asignar ese rol en el ámbito.</p>
+        <% const availableScopeResources = typeof scopeResources !== 'undefined' ? scopeResources : []; %>
+        <form action="/roles/ambitos/recursos" method="POST" class="form-grid">
+          <input type="hidden" name="csrfToken" value="<%= csrfToken %>">
+          <div class="form-group"><div class="field"><label for="scope-resource-key">Plan o actividad</label><select class="form-control" id="scope-resource-key" name="resourceKey" required><option value="">Selecciona un recurso</option><% availableScopeResources.forEach((resource) => { const key = `${resource.type}:${resource.id}`; const label = resource.type === 'plan' ? `Plan ${resource.id} — ${resource.name}` : `Actividad ${resource.id} — ${resource.name} (Plan ${resource.planId}: ${resource.planName})`; %><option value="<%= key %>"><%= label %></option><% }); %></select></div></div>
+          <div class="form-group"><div class="field"><label for="scope-resource-role">Rol habilitado</label><select class="form-control" id="scope-resource-role" name="roleId" required><option value="">Selecciona un rol con ámbito obligatorio</option><% roles.filter((role) => role.requiresScope).forEach((role) => { %><option value="<%= role.id %>"><%= displayLabel(role.name) %></option><% }); %></select></div></div>
+          <div class="form-group form-grid__full"><div class="field"><label for="scope-resource-reason">Motivo</label><textarea class="form-control" id="scope-resource-reason" name="reason" required maxlength="4000"></textarea></div></div>
+          <button class="btn btn-primary" type="submit">Habilitar recurso para el rol</button>
+        </form>
+      </details><% } %>
 
       <% if (capabilities['M01.permissions.manage']) { %><details><summary>Administrar permisos por rol</summary>
         <% roles.forEach((role) => { const activeCodes = new Set(role.permissions.filter((permission) => permission.active).map((permission) => permission.code)); %>

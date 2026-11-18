@@ -476,6 +476,29 @@ test('role administration loads its registered read endpoints with the session J
   }
 });
 
+test('scope authority can read the role catalog for scoped assignments without global administration calls', async () => {
+  fetchCalls.length = 0;
+  fetchFailure = null;
+  apiResponse = async (url) => {
+    if (url.endsWith('/roles/capacidades')) return {status: 200, ok: true, async json() {
+      return {permissions: ['M01.roles.manage_scope', 'assign-role']};
+    }};
+    if (url.endsWith('/roles/catalogo')) return {status: 200, ok: true, async json() {
+      return {roles: [{id: 7, name: 'collaborator'}]};
+    }};
+    assert.fail(`Unexpected scope-authority endpoint: ${url}`);
+  };
+  const request = createProtectedRequest();
+  const response = createResponse();
+  response.locals = {};
+  await getRoleAdministration(request.req, response);
+  assert.equal(response.rendered.view, 'role-admin');
+  assert.deepEqual(fetchCalls.map(([url]) => url), [
+    'http://localhost:3000/api/roles/capacidades',
+    'http://localhost:3000/api/roles/catalogo'
+  ]);
+});
+
 test('update validation errors use a controlled message instead of backend text', async () => {
   fetchFailure = null;
   apiResponse = {

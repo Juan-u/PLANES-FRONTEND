@@ -13,7 +13,7 @@ function navigationFor(permissions = []) {
     const values = new Set(permissions);
     const canReadInternalControl = ['M15.audit.read', 'M03.plans.read', 'M04.activities.read', 'M05.followup.read']
         .every((permission) => values.has(permission));
-    return { ...(canReadInternalControl ? { internalControl: true } : {}), plans: values.has("M03.plans.read"), activities: values.has("M04.activities.read"), followup: values.has("M05.followup.read"), reports: values.has("M12.reports.read"), users: values.has("M01.users.read"), roles: ["M01.roles.read", "M01.permissions.read", "M01.requests.read", "M01.assignments.read"].some((permission) => values.has(permission)) };
+    return { ...(canReadInternalControl ? { internalControl: true } : {}), plans: values.has("M03.plans.read"), activities: values.has("M04.activities.read"), followup: values.has("M05.followup.read"), reports: values.has("M12.reports.read"), users: values.has("M01.users.read"), roles: ["M01.roles.read", "M01.roles.manage_scope", "M01.permissions.read", "M01.requests.read", "M01.assignments.read"].some((permission) => values.has(permission)) };
 }
 
 export async function getWeather(req, res) {
@@ -853,26 +853,31 @@ export const getRoleAdministration = async (req, res) => {
         if (capabilityRejection) return capabilityRejection;
         if (!capabilityResponse.ok) return res.status(503).send(API_TEMPORARY_ERROR);
         const permissions = new Set((await capabilityResponse.json()).permissions ?? []);
-        const canReadRoles = permissions.has('M01.roles.read');
+        const canReadRoles = permissions.has('M01.roles.read') || permissions.has('M01.roles.manage_scope');
         const canReadPermissions = permissions.has('M01.permissions.read');
         const canReadRequests = permissions.has('M01.requests.read');
         const canReadAssignments = permissions.has('M01.assignments.read');
+        const canManageRoles = permissions.has('M01.roles.manage');
         if (!canReadRoles && !canReadPermissions && !canReadRequests && !canReadAssignments) return res.status(403).send("No tienes permiso para consultar la administraciÃ³n de roles.");
-        const [catalogResponse, permissionResponse, requestResponse] = await Promise.all([
+        const [catalogResponse, permissionResponse, requestResponse, scopeResourceResponse, authorityRequestResponse] = await Promise.all([
             canReadRoles ? roleApi(req, "/roles/catalogo") : null,
             canReadPermissions ? roleApi(req, "/roles/permisos") : null,
-            canReadRequests ? roleApi(req, "/roles/solicitudes") : null
+            canReadRequests ? roleApi(req, "/roles/solicitudes") : null,
+            canManageRoles ? roleApi(req, "/roles/ambitos/recursos") : null,
+            canManageRoles ? roleApi(req, "/roles/autoridad-inicial/solicitudes") : null
         ]);
-        for (const response of [catalogResponse, permissionResponse, requestResponse].filter(Boolean)) {
+        for (const response of [catalogResponse, permissionResponse, requestResponse, scopeResourceResponse, authorityRequestResponse].filter(Boolean)) {
             const rejection = await handleApiRejection(response, req, res);
             if (rejection) return rejection;
             if (!response.ok) return res.status(response.status === 404 ? 503 : response.status).send(
                 response.status === 403 ? "No tienes permiso para consultar la administración de roles." : API_TEMPORARY_ERROR);
         }
-        const [catalog, permissionCatalog, requests] = await Promise.all([
+        const [catalog, permissionCatalog, requests, scopeResourceCatalog, authorityRequestCatalog] = await Promise.all([
             catalogResponse ? catalogResponse.json() : { roles: [] },
             permissionResponse ? permissionResponse.json() : { permissions: [] },
-            requestResponse ? requestResponse.json() : { requests: [] }
+            requestResponse ? requestResponse.json() : { requests: [] },
+            scopeResourceResponse ? scopeResourceResponse.json() : { resources: [] },
+            authorityRequestResponse ? authorityRequestResponse.json() : { requests: [] }
         ]);
         const userId = req.query?.userId;
         let assignments = [];
@@ -884,7 +889,9 @@ export const getRoleAdministration = async (req, res) => {
         }
         const csrfToken = ensureRoleCsrf(req);
         const data = { roles: catalog.roles ?? [], permissions: permissionCatalog.permissions ?? [],
-            requests: requests.requests ?? [], assignments, selectedUserId: userId ?? "", csrfToken,
+            requests: requests.requests ?? [], assignments, scopeResources: scopeResourceCatalog.resources ?? [],
+            authorityRequests: authorityRequestCatalog.requests ?? [],
+            selectedUserId: userId ?? "", csrfToken,
             navigation: navigationFor([...permissions]),
             capabilities: Object.freeze(Object.fromEntries([...permissions].map((code) => [code, true]))),
             error: req.query?.error === "operation_failed" ? "No se pudo completar el cambio. Verifica los datos y los permisos." : null };
@@ -929,19 +936,72 @@ export const postPermissionState = (req, res) => {
 
 export const postRoleAssignment = (req, res) => {
     const body = req.body ?? {};
-    let scopeRef = null;
-    if (body.scopeRef !== "") {
-        if (body.scopeKind === "number") {
-            if (!/^[1-9]\d*$/.test(body.scopeRef ?? "") || !Number.isSafeInteger(Number(body.scopeRef))) return res.status(400).send("Referencia de ámbito inválida.");
-            scopeRef = Number(body.scopeRef);
-        } else if (body.scopeKind === "string" && typeof body.scopeRef === "string" && body.scopeRef.trim() !== "") {
-            scopeRef = body.scopeRef;
-        } else return res.status(400).send("Selecciona el tipo exacto de ámbito.");
+    let scopeResource;
+    if (body.scopeResourceKey) {
+        const match = /^(plan|activity):([1-9]\d*)$/.exec(body.scopeResourceKey);
+        if (!match || !Number.isSafeInteger(Number(match[2]))) return res.status(400).send("Selecciona un plan o actividad válido.");
+        scopeResource = {type: match[1], id: Number(match[2])};
     }
     return rolePost(req, res, "/roles/asignaciones", {
-        targetUserId: body.targetUserId, roleId: body.roleId, scopeRef,
+        targetUserId: body.targetUserId, roleId: body.roleId, scopeResource,
         validFrom: body.validFrom || undefined, validUntil: body.validUntil || null, reason: body.reason
     });
+};
+
+export const getAssignableScopeResources = async (req, res) => {
+    const targetUserId = req.query?.targetUserId;
+    const roleIdValue = req.query?.roleId;
+    if (!roleId(targetUserId) || !roleId(roleIdValue)) {
+        return res.status(400).json({ok: false, code: 'INVALID_IDENTIFIER'});
+    }
+    try {
+        const response = await roleApi(req,
+            `/roles/asignacion-recursos?targetUserId=${encodeURIComponent(targetUserId)}&roleId=${encodeURIComponent(roleIdValue)}`);
+        const rejection = await handleApiRejection(response, req, res);
+        if (rejection) return rejection;
+        if (!response.ok) return res.status(response.status).json({ok: false, code: 'RESOURCE_OPTIONS_UNAVAILABLE'});
+        const data = await response.json();
+        return res.json({ok: true, resources: Array.isArray(data.resources) ? data.resources : []});
+    } catch {
+        return res.status(503).json({ok: false, code: 'RESOURCE_OPTIONS_UNAVAILABLE'});
+    }
+};
+
+export const postEnableScopeResource = (req, res) => {
+    const body = req.body ?? {};
+    const match = /^(plan|activity):([1-9]\d*)$/.exec(body.resourceKey ?? '');
+    if (!roleId(String(body.roleId ?? '')) || !match || !Number.isSafeInteger(Number(match[2]))) {
+        return res.status(400).send("Selecciona un rol y un recurso válidos.");
+    }
+    return rolePost(req, res, "/roles/ambitos/recursos", {
+        roleId: Number(body.roleId),
+        resourceType: match[1],
+        resourceId: Number(match[2]),
+        reason: body.reason
+    });
+};
+
+export const postInitialScopeAuthorityRequest = (req, res) => {
+    const body = req.body ?? {};
+    if (!roleId(String(body.targetUserId ?? '')) || !roleId(String(body.planId ?? ''))) {
+        return res.status(400).send("Selecciona un usuario y un plan válidos.");
+    }
+    return rolePost(req, res, "/roles/autoridad-inicial/solicitudes", {
+        targetUserId: body.targetUserId, planId: body.planId,
+        institutionalReference: body.institutionalReference,
+        validFrom: body.validFrom || undefined, validUntil: body.validUntil,
+        reason: body.reason
+    });
+};
+
+export const postInitialScopeAuthorityDecision = (req, res) => {
+    const body = req.body ?? {};
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(body.requestId ?? '') ||
+        !['approve', 'reject'].includes(body.decision)) return res.status(400).send("Solicitud inválida.");
+    return rolePost(req, res,
+        `/roles/autoridad-inicial/solicitudes/${encodeURIComponent(body.requestId)}/decision`, {
+            decision: body.decision, institutionalReference: body.institutionalReference, reason: body.reason
+        });
 };
 
 export const postRoleRevocation = (req, res) => {
