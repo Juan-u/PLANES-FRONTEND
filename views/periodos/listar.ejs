@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Periodos | Instituto del Huila</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="h-screen flex bg-gray-100">
+
+    <!-- BARRA LATERAL -->
+    <aside class="w-56 shrink-0 bg-blue-700 text-white flex flex-col justify-between p-4 overflow-y-auto">
+        <div>
+            <a href="/menu" class="block mb-6">
+                <p class="font-bold text-xl mb-1">IH</p>
+                <p class="text-xs text-blue-200">Instituto del Huila</p>
+            </a>
+
+            <nav class="space-y-2 text-sm">
+                <a href="/menu"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🏠 Menú principal
+                </a>
+
+                <a href="/planes"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📋 Planes de Acción
+                </a>
+
+                <a href="/usuarios"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    👥 Usuarios
+                </a>
+
+                <a href="/roles"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🔐 Roles
+                </a>
+
+                <a href="/periodos"
+                   class="block px-3 py-2 rounded bg-blue-600 transition text-sm">
+                    📊 Periodos
+                </a>
+
+                <a href="/areas"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🏢 Áreas
+                </a>
+
+                <a href="/seguimiento"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📈 Seguimiento
+                </a>
+
+                            <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/auditoria"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🛡️ Auditoría
+                </a>
+                <% } %>
+            </nav>
+        </div>
+
+        <a href="/logout"
+           onclick="return confirm('¿Desea cerrar sesión?')"
+           class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition mt-6">
+            Salir
+        </a>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 min-w-0 p-6 overflow-auto">
+
+        <!-- ENCABEZADO -->
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+            <div>
+                <p class="text-xs font-semibold text-blue-700 mb-1">
+                    ADMINISTRACIÓN
+                </p>
+
+                <h1 class="text-xl font-bold text-gray-700">
+                    Gestión de periodos
+                </h1>
+
+                <p class="text-sm text-gray-500 mt-1">
+                    Abre un periodo para habilitar las calificaciones y ciérralo al finalizar.
+                </p>
+            </div>
+
+            <a href="/periodos/nuevo"
+               class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition text-sm">
+                + Nuevo periodo
+            </a>
+        </div>
+
+        <!-- MENSAJES -->
+        <% if (typeof mensaje !== 'undefined' && mensaje) { %>
+            <div class="bg-blue-100 border border-blue-200 text-blue-800 p-3 rounded mb-4 text-sm">
+                <%= mensaje %>
+            </div>
+        <% } %>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="bg-red-100 border border-red-200 text-red-800 p-3 rounded mb-4 text-sm">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <!-- TABLA DE PERIODOS -->
+        <section class="bg-white rounded shadow overflow-hidden">
+
+            <div class="p-4 border-b">
+                <h2 class="font-semibold text-gray-700">
+                    Periodos registrados
+                </h2>
+
+                <p class="text-sm text-gray-500 mt-1">
+                    Los periodos cerrados conservan su historial de calificaciones.
+                </p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+
+                    <thead>
+                        <tr class="bg-gray-50 border-b">
+                            <th class="text-left p-3 font-semibold text-gray-600">
+                                Periodo
+                            </th>
+
+                            <th class="text-left p-3 font-semibold text-gray-600">
+                                Fecha de inicio
+                            </th>
+
+                            <th class="text-left p-3 font-semibold text-gray-600">
+                                Fecha de cierre
+                            </th>
+
+                            <th class="text-left p-3 font-semibold text-gray-600">
+                                Estado
+                            </th>
+
+                            <th class="text-right p-3 font-semibold text-gray-600">
+                                Acciones
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <% (periodos || []).forEach(periodo => {
+                            const abierto = String(periodo.estado || '').toLowerCase() === 'abierto';
+                        %>
+
+                            <tr class="border-b hover:bg-gray-50 transition">
+
+                                <!-- NOMBRE -->
+                                <td class="p-3">
+                                    <div class="font-medium text-gray-700">
+                                        <%= periodo.nombre %>
+                                    </div>
+
+                                    <div class="text-xs text-gray-400 mt-1">
+                                        ID: <%= periodo.id %>
+                                    </div>
+                                </td>
+
+                                <!-- FECHA DE INICIO -->
+                                <td class="p-3 text-gray-600 whitespace-nowrap">
+                                    <%= periodo.fecha_inicio
+                                        ? String(periodo.fecha_inicio).slice(0, 10)
+                                        : '—' %>
+                                </td>
+
+                                <!-- FECHA DE CIERRE -->
+                                <td class="p-3 text-gray-600 whitespace-nowrap">
+                                    <%= periodo.fecha_fin
+                                        ? String(periodo.fecha_fin).slice(0, 10)
+                                        : '—' %>
+                                </td>
+
+                                <!-- ESTADO -->
+                                <td class="p-3">
+                                    <span class="inline-block rounded-full px-2 py-1 text-xs font-medium
+                                        <%= abierto
+                                            ? 'bg-green-100 text-green-700'
+                                            : 'bg-gray-100 text-gray-600' %>">
+                                        <%= abierto
+                                            ? 'Abierto'
+                                            : 'Cerrado' %>
+                                    </span>
+
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        <%= abierto
+                                            ? 'Admite calificaciones'
+                                            : 'Calificaciones bloqueadas' %>
+                                    </p>
+                                </td>
+
+                                <!-- ACCIONES -->
+                                <td class="p-3">
+                                    <div class="flex justify-end flex-wrap gap-2">
+
+                                        <a href="/periodos/editar/<%= periodo.id %>"
+                                           class="bg-blue-600 text-white px-3 py-1.5 rounded text-xs hover:bg-blue-700 transition">
+                                            Editar
+                                        </a>
+
+                                        <% if (abierto) { %>
+
+                                            <form action="/periodos/cerrar"
+                                                  method="POST"
+                                                  onsubmit="return confirm('¿Cerrar este periodo? Ya no se podrán registrar calificaciones si el backend aplica esta restricción.');">
+
+                                                <input type="hidden"
+                                                       name="id"
+                                                       value="<%= periodo.id %>">
+
+                                                <button type="submit"
+                                                        class="bg-red-500 text-white px-3 py-1.5 rounded text-xs hover:bg-red-600 transition">
+                                                    Cerrar
+                                                </button>
+                                            </form>
+
+                                        <% } else { %>
+
+                                            <form action="/periodos/abrir"
+                                                  method="POST"
+                                                  onsubmit="return confirm('¿Abrir este periodo y habilitar las calificaciones?');">
+
+                                                <input type="hidden"
+                                                       name="id"
+                                                       value="<%= periodo.id %>">
+
+                                                <button type="submit"
+                                                        class="bg-green-600 text-white px-3 py-1.5 rounded text-xs hover:bg-green-700 transition">
+                                                    Activar periodo
+                                                </button>
+                                            </form>
+
+                                        <% } %>
+
+                                    </div>
+                                </td>
+                            </tr>
+
+                        <% }); %>
+
+                        <% if (!(periodos || []).length) { %>
+                            <tr>
+                                <td colspan="5"
+                                    class="p-6 text-center text-gray-400 italic">
+                                    No hay periodos registrados. Crea el primer periodo para comenzar.
+                                </td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+
+                </table>
+            </div>
+
+            <div class="p-3 border-t bg-gray-50 text-xs text-gray-500">
+                Solo los usuarios autorizados deben poder modificar el estado de los periodos.
+            </div>
+
+        </section>
+    </main>
+</body>
+</html>

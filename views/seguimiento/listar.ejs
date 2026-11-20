@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calificaciones y evidencias</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="h-screen flex bg-gray-100">
+
+    <!-- SIDEBAR -->
+    <aside class="w-56 shrink-0 bg-blue-700 text-white flex flex-col justify-between p-4 overflow-y-auto">
+        <div>
+            <p class="font-bold text-xl mb-1">IH</p>
+            <p class="text-xs text-blue-200 mb-6">Instituto del Huila</p>
+
+            <nav class="space-y-2">
+                <a href="/menu" class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🏠 Menú principal
+                </a>
+
+                <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/planes"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📋 Planes de Acción
+                </a>
+                <% } %>
+                <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/usuarios"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    👥 Usuarios
+                </a>
+                <% } %>
+                <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/roles"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🔐 Roles
+                </a>
+                <% } %>
+                <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/periodos"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📊 Periodos
+                </a>
+                <% } %>
+                <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/areas"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🏢 Áreas
+                </a>
+                <% } %>
+                <a href="/seguimiento"
+                   class="block px-3 py-2 rounded bg-blue-600 transition text-sm">
+                    📈 Seguimiento
+                </a>
+
+              <% if (usuario && Number(usuario.rol_id) === 1) { %>
+                <a href="/auditoria"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🛡️ Auditoría
+                </a>
+                <% } %>
+            </nav>
+        </div>
+
+        <a href="/logout"
+           onclick="return confirm('¿Desea cerrar sesión?')"
+           class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition mt-6">
+            Salir
+        </a>
+    </aside>
+
+    <!-- CONTENIDO PRINCIPAL -->
+    <main class="flex-1 min-w-0 p-6 overflow-auto">
+
+        <!-- ENCABEZADO -->
+        <div class="flex flex-wrap justify-between items-center gap-3 mb-6">
+            <div>
+                <h1 class="text-xl font-bold text-gray-700">
+                    Calificaciones, evidencias y revisión
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    Seguimiento trimestral · Escala de calificación de 1 a 4
+                </p>
+            </div>
+
+            <a href="/menu"
+               class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition text-sm">
+                Volver al menú
+            </a>
+                        <a href="/seguimiento/actividades"
+               class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition text-sm">
+                Actividades
+            </a>
+        </div>
+
+        <!-- MENSAJES -->
+        <% if (typeof mensaje !== 'undefined' && mensaje) { %>
+            <div class="bg-blue-100 border border-blue-200 text-blue-800 p-3 rounded mb-4 text-sm">
+                <%= mensaje %>
+            </div>
+        <% } %>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+            <div class="bg-red-100 border border-red-200 text-red-800 p-3 rounded mb-4 text-sm">
+                <%= error %>
+            </div>
+        <% } %>
+
+        <!-- FORMULARIOS -->
+        <section class="grid grid-cols-1 xl:grid-cols-2 gap-5 mb-6">
+
+            <!-- CREAR ACTIVIDAD -->
+            <div class="bg-white rounded shadow overflow-hidden">
+                <div class="p-4 border-b bg-gray-50">
+                    <h2 class="font-semibold text-gray-700">
+                        1. Crear actividad de planeación
+                    </h2>
+                </div>
+
+                <form action="/seguimiento/planeacion/crear"
+                      method="POST"
+                      class="p-5 space-y-4">
+
+                    <div>
+                        <label for="actividad" class="block text-sm font-medium text-gray-700">
+                            Actividad
+                        </label>
+                        <textarea id="actividad"
+                                  name="actividad"
+                                  required
+                                  rows="3"
+                                  class="w-full border border-gray-300 rounded p-2 mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                    </div>
+
+                    <div>
+                        <label for="area_id" class="block text-sm font-medium text-gray-700">
+                            Área responsable
+                        </label>
+                        <select id="area_id"
+                                name="area_id"
+                                required
+                                class="w-full border border-gray-300 rounded p-2 mt-1 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">Selecciona un área</option>
+                            <% areas.forEach(a => { %>
+                                <option value="<%= a.id %>">
+                                    <%= a.nombre %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="periodo_creacion" class="block text-sm font-medium text-gray-700">
+                            Periodo trimestral
+                        </label>
+                        <select id="periodo_creacion"
+                                name="periodo_id"
+                                required
+                                class="w-full border border-gray-300 rounded p-2 mt-1 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">Selecciona un periodo</option>
+                            <% periodos.forEach(p => { %>
+                                <option value="<%= p.id %>">
+                                    <%= p.nombre %> — <%= p.estado %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+              <div>
+    <label for="plan_accion_id" class="block text-sm font-medium text-gray-700">
+        Plan de acción
+    </label>
+
+    <select
+        id="plan_accion_id"
+        name="plan_accion_id"
+        required
+        class="w-full border border-gray-300 rounded p-2 mt-1 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+
+        <option value="">Selecciona un plan de acción</option>
+
+        <% if (Array.isArray(planes)) { %>
+            <% planes.forEach(p => { %>
+                <% if (p.estado === 'Activo') { %>
+                    <option value="<%= p.id %>">
+                        <%= p.nombre %>
+                    </option>
+                <% } %>
+            <% }) %>
+        <% } %>
+    </select>
+</div>
+
+                    <button type="submit"
+                            class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition text-sm">
+                        + Crear actividad
+                    </button>
+                </form>
+            </div>
+
+            <!-- REGISTRAR CALIFICACIÓN -->
+            <div class="bg-white rounded shadow overflow-hidden">
+                <div class="p-4 border-b bg-gray-50">
+                    <h2 class="font-semibold text-gray-700">
+                        2. Registrar calificación trimestral
+                    </h2>
+                </div>
+
+                <form action="/seguimiento/calificaciones/crear"
+                      method="POST"
+                      class="p-5 space-y-4">
+
+                    <div>
+                        <label for="planeacion_id" class="block text-sm font-medium text-gray-700">
+                            Actividad
+                        </label>
+                        <select id="planeacion_id"
+                                name="planeacion_id"
+                                required
+                                class="w-full border border-gray-300 rounded p-2 mt-1 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">Selecciona una actividad</option>
+                            <% planeaciones.forEach(p => { %>
+                                <option value="<%= p.id %>">
+                                    <%= p.actividad %> · <%= p.area %> · <%= p.periodo %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="periodo_calificacion" class="block text-sm font-medium text-gray-700">
+                            Periodo abierto
+                        </label>
+                        <select id="periodo_calificacion"
+                                name="periodo_id"
+                                required
+                                class="w-full border border-gray-300 rounded p-2 mt-1 bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                            <option value="">Selecciona un periodo abierto</option>
+                            <% periodos.filter(p => p.estado === 'Abierto').forEach(p => { %>
+                                <option value="<%= p.id %>">
+                                    <%= p.nombre %>
+                                </option>
+                            <% }) %>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="resultado_obtenido" class="block text-sm font-medium text-gray-700">
+                            Calificación (1 a 4)
+                        </label>
+                        <input id="resultado_obtenido"
+                               type="number"
+                               name="resultado_obtenido"
+                               min="1"
+                               max="4"
+                               step="0.01"
+                               required
+                               class="w-full border border-gray-300 rounded p-2 mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label for="observacion" class="block text-sm font-medium text-gray-700">
+                            Comentario del responsable
+                        </label>
+                        <textarea id="observacion"
+                                  name="observacion"
+                                  rows="2"
+                                  class="w-full border border-gray-300 rounded p-2 mt-1 focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                    </div>
+
+                    <button type="submit"
+                            class="bg-blue-700 text-white px-4 py-2 rounded hover:bg-blue-800 transition text-sm">
+                        Registrar calificación
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- TABLA DE SEGUIMIENTO -->
+         
+        <section class="bg-white rounded shadow overflow-hidden">
+
+            <div class="p-4 border-b">
+                <h2 class="font-semibold text-gray-700">
+                    3. Seguimiento y revisión
+                </h2>
+                <p class="text-sm text-gray-500 mt-1">
+                    Los periodos deben estar abiertos para registrar calificaciones y cargar evidencias.
+                    Los usuarios autorizados pueden aprobar u observar cada registro.
+                </p>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 border-b">
+                            <th class="text-left p-3 font-semibold text-gray-600">Actividad / Área</th>
+                            <th class="text-left p-3 font-semibold text-gray-600">Periodo</th>
+                            <th class="text-left p-3 font-semibold text-gray-600">Nota</th>
+                            <th class="text-left p-3 font-semibold text-gray-600">Evidencias</th>
+                            <th class="text-left p-3 font-semibold text-gray-600">Revisión</th>
+                            <th class="text-left p-3 font-semibold text-gray-600">Acciones</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        <% if (calificaciones && calificaciones.length > 0) { %>
+                            <% calificaciones.forEach(c => { %>
+                                <tr class="border-b hover:bg-gray-50 transition align-top">
+
+                                    <td class="p-3 min-w-48">
+                                        <p class="font-medium text-gray-700">
+                                            <%= c.actividad %>
+                                        </p>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            <%= c.area %>
+                                        </p>
+
+                                        <% if (c.observacion) { %>
+                                            <p class="text-xs text-gray-600 mt-2">
+                                                <span class="font-semibold">Comentario:</span>
+                                                <%= c.observacion %>
+                                            </p>
+                                        <% } %>
+                                    </td>
+
+                                    <td class="p-3 whitespace-nowrap">
+                                        <p class="text-gray-700"><%= c.periodo %></p>
+                                        <p class="text-xs text-gray-500 mt-1">
+                                            <%= c.estado_periodo %>
+                                        </p>
+                                    </td>
+
+                                    <td class="p-3">
+                                        <span class="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded font-semibold">
+                                            <%= c.resultado_obtenido %>
+                                        </span>
+                                    </td>
+
+                                    <!-- EVIDENCIAS -->
+                                    <td class="p-3 min-w-48">
+                                        <p class="text-gray-600 mb-2">
+                                            <%= c.total_evidencias %> archivo(s)
+                                        </p>
+
+                                        <% if (c.evidencia_ids && c.evidencia_nombres) {
+                                            const ids = String(c.evidencia_ids).split(',');
+                                            const nombres = String(c.evidencia_nombres).split('|||');
+                                        %>
+                                            <div class="space-y-2 mb-3">
+                                                <% ids.forEach((eid, idx) => { %>
+                                                    <div>
+                                                        <a class="text-blue-700 hover:text-blue-900 underline text-xs break-all"
+                                                           href="/seguimiento/evidencias/<%= encodeURIComponent(eid) %>/descargar">
+                                                            <%= nombres[idx] || ('Evidencia ' + eid) %>
+                                                        </a>
+                                                    </div>
+                                                <% }) %>
+                                            </div>
+                                        <% } %>
+
+                                        <form class="evidence-form space-y-2"
+                                              action="/seguimiento/evidencias/subir"
+                                              method="POST">
+
+                                            <input type="hidden" name="calificacion_id" value="<%= c.id %>">
+                                            <input type="hidden" name="filename">
+                                            <input type="hidden" name="mimetype">
+                                            <input type="hidden" name="filedata">
+
+                                            <input type="file"
+                                                   accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx"
+                                                   class="file-input block w-full text-xs text-gray-600"
+                                                   required>
+
+                                            <button type="submit"
+                                                    class="bg-blue-700 text-white px-3 py-1.5 rounded hover:bg-blue-800 transition text-xs">
+                                                Cargar evidencia
+                                            </button>
+
+                                            <p class="text-xs text-gray-500">
+                                                Máximo 10 MB por archivo.
+                                            </p>
+                                        </form>
+                                    </td>
+
+                                    <!-- ESTADO DE REVISIÓN -->
+                                    <td class="p-3 min-w-36">
+                                        <span class="inline-block rounded px-2 py-1 text-xs font-medium
+                                            <%= c.estado_revision === 'Aprobada'
+                                                ? 'bg-green-100 text-green-700'
+                                                : c.estado_revision === 'Observada'
+                                                    ? 'bg-yellow-100 text-yellow-700'
+                                                    : 'bg-gray-100 text-gray-600' %>">
+                                            <%= c.estado_revision || 'Pendiente' %>
+                                        </span>
+
+                                        <% if (c.observacion_revision) { %>
+                                            <p class="text-xs text-gray-600 mt-2 break-words">
+                                                <%= c.observacion_revision %>
+                                            </p>
+                                        <% } %>
+                                    </td>
+
+                                    <!-- ACCIONES DE REVISIÓN -->
+                                    <td class="p-3 min-w-48">
+                                        <% if ([1, 2].includes(Number(usuario?.rol_id))) { %>
+                                            <form action="/seguimiento/calificaciones/revision"
+                                                  method="POST"
+                                                  class="space-y-2">
+
+                                                <input type="hidden" name="id" value="<%= c.id %>">
+
+                                                <select name="estado"
+                                                        required
+                                                        class="border border-gray-300 rounded p-2 w-full bg-white text-xs">
+                                                    <option value="Aprobada"
+                                                        <%= c.estado_revision === 'Aprobada' ? 'selected' : '' %>>
+                                                        Aprobar
+                                                    </option>
+                                                    <option value="Observada"
+                                                        <%= c.estado_revision === 'Observada' ? 'selected' : '' %>>
+                                                        Observar
+                                                    </option>
+                                                </select>
+
+                                                <textarea name="observacion"
+                                                          placeholder="Observación si se devuelve"
+                                                          rows="2"
+                                                          class="border border-gray-300 rounded p-2 w-full text-xs"><%= c.observacion_revision || '' %></textarea>
+
+                                                <button type="submit"
+                                                        class="bg-gray-700 text-white rounded px-3 py-2 hover:bg-gray-800 transition text-xs w-full">
+                                                    Guardar revisión
+                                                </button>
+                                            </form>
+                                        <% } else { %>
+                                            <span class="text-xs text-gray-500">
+                                                Sin permisos para revisar.
+                                            </span>
+                                        <% } %>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        <% } else { %>
+                            <tr>
+                                <td colspan="6" class="p-6 text-center text-gray-400 italic">
+                                    Todavía no hay calificaciones registradas.
+                                </td>
+                            </tr>
+                        <% } %>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="p-3 border-t bg-gray-50 text-xs text-gray-500">
+                Las evidencias y revisiones se muestran según la información registrada en el sistema.
+            </div>
+        </section>
+    </main>
+
+    <!-- CONVERSIÓN DE EVIDENCIAS A BASE64 -->
+    <script>
+        document.querySelectorAll('.evidence-form').forEach(form => {
+            form.addEventListener('submit', async event => {
+                event.preventDefault();
+
+                const fileInput = form.querySelector('.file-input');
+                const file = fileInput.files[0];
+
+                if (!file) {
+                    alert('Selecciona un archivo antes de continuar.');
+                    return;
+                }
+
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('El archivo supera el límite de 10 MB.');
+                    return;
+                }
+
+                try {
+                    const bytes = await file.arrayBuffer();
+                    const view = new Uint8Array(bytes);
+                    let binary = '';
+
+                    for (let i = 0; i < view.length; i += 0x8000) {
+                        binary += String.fromCharCode(
+                            ...view.subarray(i, i + 0x8000)
+                        );
+                    }
+
+                    form.querySelector('[name="filename"]').value = file.name;
+                    form.querySelector('[name="mimetype"]').value =
+                        file.type || 'application/octet-stream';
+                    form.querySelector('[name="filedata"]').value = btoa(binary);
+
+                    form.submit();
+                } catch (error) {
+                    console.error('Error al procesar la evidencia:', error);
+                    alert('No fue posible procesar el archivo seleccionado.');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

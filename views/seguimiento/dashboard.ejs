@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard institucional | Instituto del Huila</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-100 flex">
+
+  <!-- SIDEBAR -->
+    <aside class="w-56 shrink-0 bg-blue-700 text-white flex flex-col justify-between p-4">
+        <div>
+            <p class="font-bold text-xl mb-1">IH</p>
+            <p class="text-xs text-blue-200 mb-6">Instituto del Huila</p>
+
+            <nav class="space-y-2">
+                <a href="/menu"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🏠 Menú principal
+                </a>
+
+                <a href="/planes"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📋 Planes de Acción
+                </a>
+
+                <a href="/usuarios"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    👥 Usuarios
+                </a>
+
+                <a href="/roles"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🔐 Roles
+                </a>
+
+                <a href="/periodos"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📊 Periodos
+                </a>
+
+                <a href="/areas"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    🏢 Áreas
+                </a>
+
+                <a href="/seguimiento"
+                   class="block px-3 py-2 rounded hover:bg-blue-600 transition text-sm">
+                    📈 Seguimiento
+                </a>
+
+                <a href="/auditoria"
+                   class="block px-3 py-2 rounded bg-blue-600 transition text-sm">
+                    🛡️ Auditoría
+                </a>
+            </nav>
+        </div>
+
+        <a href="/logout"
+           onclick="return confirm('¿Desea cerrar sesión?')"
+           class="bg-red-500 text-center px-3 py-2 rounded text-sm hover:bg-red-600 transition">
+            Salir
+        </a>
+    </aside>
+
+
+  <!-- Contenido principal -->
+  <main class="flex-1 min-w-0 p-6 lg:p-8">
+
+    <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-800">
+          Dashboard de seguimiento
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">
+          Sistema de Gestión de Planes de Acción · Instituto del Huila
+        </p>
+      </div>
+
+      <a href="/menu"
+         class="inline-flex items-center justify-center bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
+        Volver al menú
+      </a>
+    </header>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <% if (dashboard) { %>
+
+      <!-- Indicadores -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-8">
+
+        <% const cards = [
+          ['Planes activos', dashboard.resumen.planes],
+          ['Actividades', dashboard.resumen.actividades],
+          ['Periodos abiertos', dashboard.resumen.periodosAbiertos],
+          ['Calificaciones', dashboard.resumen.calificaciones],
+          ['Pendientes de revisión', dashboard.resumen.pendientes]
+        ]; %>
+
+        <% cards.forEach(c => { %>
+          <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <p class="text-sm text-gray-500"><%= c[0] %></p>
+            <p class="text-3xl font-bold text-blue-700 mt-3">
+              <%= c[1] ?? 0 %>
+            </p>
+          </div>
+        <% }) %>
+
+      </section>
+
+      <!-- Consolidado por periodo -->
+      <section class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8">
+        <div class="px-5 py-4 border-b border-gray-200">
+          <h2 class="text-lg font-bold text-gray-800">
+            Consolidado por periodo
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">
+            Estado y resultado de las calificaciones registradas.
+          </p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th class="px-5 py-3 font-semibold">Periodo</th>
+                <th class="px-5 py-3 font-semibold">Estado</th>
+                <th class="px-5 py-3 font-semibold">Calificaciones</th>
+                <th class="px-5 py-3 font-semibold">Aprobadas</th>
+                <th class="px-5 py-3 font-semibold">Observadas</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <% if (dashboard.porPeriodo && dashboard.porPeriodo.length) { %>
+                <% dashboard.porPeriodo.forEach(p => { %>
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-5 py-4 font-medium text-gray-800">
+                      <%= p.nombre %>
+                    </td>
+                    <td class="px-5 py-4">
+                      <span class="inline-flex px-2.5 py-1 rounded-full text-xs font-semibold
+                        <%= String(p.estado || '').toLowerCase() === 'abierto'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-gray-100 text-gray-600' %>">
+                        <%= p.estado %>
+                      </span>
+                    </td>
+                    <td class="px-5 py-4 text-gray-700"><%= p.calificaciones || 0 %></td>
+                    <td class="px-5 py-4 text-green-700 font-medium"><%= p.aprobadas || 0 %></td>
+                    <td class="px-5 py-4 text-amber-700 font-medium"><%= p.observadas || 0 %></td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="5" class="px-5 py-8 text-center text-gray-500">
+                    No hay información de periodos para mostrar.
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Consolidado por área -->
+      <section class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8">
+        <div class="px-5 py-4 border-b border-gray-200">
+          <h2 class="text-lg font-bold text-gray-800">
+            Consolidado por área
+          </h2>
+          <p class="text-sm text-gray-500 mt-1">
+            Actividades y promedio de calificaciones por área.
+          </p>
+        </div>
+
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm text-left">
+            <thead class="bg-gray-50 text-gray-600">
+              <tr>
+                <th class="px-5 py-3 font-semibold">Área</th>
+                <th class="px-5 py-3 font-semibold">Actividades</th>
+                <th class="px-5 py-3 font-semibold">Promedio de calificación</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <% if (dashboard.porArea && dashboard.porArea.length) { %>
+                <% dashboard.porArea.forEach(a => { %>
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-5 py-4 font-medium text-gray-800"><%= a.area %></td>
+                    <td class="px-5 py-4 text-gray-700"><%= a.actividades || 0 %></td>
+                    <td class="px-5 py-4 text-gray-700">
+                      <%= a.promedio == null ? 'Sin notas' : Number(a.promedio).toFixed(2) %>
+                    </td>
+                  </tr>
+                <% }) %>
+              <% } else { %>
+                <tr>
+                  <td colspan="3" class="px-5 py-8 text-center text-gray-500">
+                    No hay información de áreas para mostrar.
+                  </td>
+                </tr>
+              <% } %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    <% } %>
+
+    <!-- Notificaciones -->
+    <section class="bg-white rounded-xl border border-gray-200 shadow-sm mb-8">
+      <div class="px-5 py-4 border-b border-gray-200">
+        <h2 class="text-lg font-bold text-gray-800">
+          Notificaciones recientes
+        </h2>
+        <p class="text-sm text-gray-500 mt-1">
+          Últimos avisos registrados en el sistema.
+        </p>
+      </div>
+
+      <div class="px-5">
+        <% if (!notificaciones || !notificaciones.length) { %>
+          <p class="py-6 text-sm text-gray-500">
+            No hay notificaciones para mostrar.
+          </p>
+        <% } else { %>
+          <% notificaciones.slice(0, 10).forEach(n => { %>
+            <div class="py-4 border-b border-gray-100 last:border-b-0">
+              <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                <strong class="text-gray-800"><%= n.titulo %></strong>
+                <span class="text-xs text-gray-500">
+                  <%= new Date(n.fecha).toLocaleString('es-CO') %>
+                </span>
+              </div>
+              <p class="text-sm text-gray-600 mt-2"><%= n.mensaje %></p>
+            </div>
+          <% }) %>
+        <% } %>
+      </div>
+    </section>
+
+ 
+
+  </main>
+</body>
+</html>

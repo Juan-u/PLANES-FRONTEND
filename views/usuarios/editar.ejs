@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editar usuario</title><script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-100 p-6">
+  <main class="mx-auto max-w-xl rounded bg-white p-6 shadow">
+    <div class="mb-5 flex items-center justify-between">
+      <h1 class="text-xl font-bold text-gray-700">Editar usuario</h1>
+      <a href="/usuarios" class="text-blue-700 hover:underline">← Volver</a>
+    </div>
+    <% if (error) { %><div class="mb-4 rounded border border-red-300 bg-red-50 p-3 text-red-700"><%= error %></div><% } %>
+    <form action="/usuarios/editar" method="POST" class="space-y-4">
+      <input type="hidden" name="id" value="<%= usuario.id %>">
+      <div><label class="block text-sm font-medium">Nombre *</label>
+        <input class="mt-1 w-full rounded border p-2" name="nombre" value="<%= usuario.nombre %>" required></div>
+      <div><label class="block text-sm font-medium">Correo *</label>
+        <input class="mt-1 w-full rounded border p-2" type="email" name="correo" value="<%= usuario.correo %>" required></div>
+      <div><label class="block text-sm font-medium">Nueva contraseña</label>
+        <input class="mt-1 w-full rounded border p-2" type="password" name="password" placeholder="Vacío = conservar contraseña"></div>
+      <div><label class="block text-sm font-medium">Área</label>
+        <select class="mt-1 w-full rounded border p-2" name="area_id">
+          <option value="">Sin área</option>
+          <% (areas || []).forEach(area => { %>
+            <option value="<%= area.id %>" <%= String(usuario.area_id || '') === String(area.id) ? 'selected' : '' %>><%= area.nombre %></option>
+          <% }) %>
+        </select></div>
+      <div><label class="block text-sm font-medium">Estado</label>
+        <select class="mt-1 w-full rounded border p-2" name="estado">
+          <option value="Activo" <%= (usuario.estado || 'Activo') === 'Activo' ? 'selected' : '' %>>Activo</option>
+          <option value="Inactivo" <%= usuario.estado === 'Inactivo' ? 'selected' : '' %>>Inactivo</option>
+        </select></div>
+      <div><label class="block text-sm font-medium">Rol *</label>
+        <select class="mt-1 w-full rounded border p-2" name="rol_id" required>
+          <option value="">Seleccione un rol</option>
+          <% (roles || []).forEach(rol => { %>
+            <option value="<%= rol.id %>" <%= String(usuario.rol_id || '') === String(rol.id) ? 'selected' : '' %>><%= rol.nombre %></option>
+          <% }) %>
+        </select></div>
+      <div class="flex gap-3 pt-2">
+        <button class="flex-1 rounded bg-blue-700 p-2 text-white hover:bg-blue-800" type="submit">Guardar cambios</button>
+        <a class="flex-1 rounded border p-2 text-center" href="/usuarios">Cancelar</a>
+      </div>
+    </form>
+  </main>
+</body>
+</html>
